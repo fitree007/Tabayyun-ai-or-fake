@@ -37,14 +37,21 @@
     fileHint: $('learnFileHint'),
     ytGroup: $('learnYoutubeGroup'),
     inYoutube: $('learnInputYoutube'),
+    fbGroup: $('learnFacebookGroup'),
+    inFacebook: $('learnInputFacebook'),
+    inCover: $('learnInputCover'),
+    coverHint: $('learnCoverHint'),
+    viewerOpen: $('learnViewerOpen'),
     formError: $('learnFormError'),
     btnDelete: $('btnLearnDelete'),
     btnSave: $('btnLearnSave'),
     btnCloseForm: $('btnCloseLearnForm'),
   };
 
-  const KIND_LABEL = { video: 'วิดีโอ', image: 'รูปภาพ', youtube: 'YouTube' };
+  const KIND_LABEL = { video: 'วิดีโอ', image: 'รูปภาพ', youtube: 'YouTube', facebook: 'Facebook' };
   const PLAY_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
+  const FB_SVG =
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 8h3V4h-3c-2.8 0-4.5 1.8-4.5 4.6V11H7v4h2.5v7h4v-7H16l.6-4h-3.1V8.9c0-.6.3-.9.5-.9z"/></svg>';
 
   let items = [];
   let loadError = '';
@@ -73,6 +80,31 @@
       return '';
     }
   }
+
+  /** Accepts Facebook reel / video / share links; returns a normalised https://www.facebook.com/... URL or ''. */
+  function parseFacebookUrl(raw) {
+    const text = (raw || '').trim();
+    if (!text) return '';
+    try {
+      const u = new URL(text);
+      const host = u.hostname.toLowerCase();
+      if (host === 'fb.watch') return u.pathname.length > 1 ? `https://fb.watch${u.pathname}` : '';
+      if (!/(^|\.)facebook\.com$/.test(host)) return '';
+      const path = u.pathname;
+      const looksLikeVideo =
+        /^\/reel\/\d+/.test(path) ||
+        /^\/share\/(r|v)\/[\w-]+/.test(path) ||
+        /\/videos\/(?:[\w.-]+\/)?\d+/.test(path) ||
+        (path === '/watch' || path === '/watch/') && u.searchParams.get('v');
+      if (!looksLikeVideo) return '';
+      const keep = path.startsWith('/watch') ? `?v=${encodeURIComponent(u.searchParams.get('v'))}` : '';
+      return `https://www.facebook.com${path.replace(/\/+$/, '')}${keep}`;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  const isVerticalFacebook = (url) => /\/reel\/|\/share\/r\//.test(url || '');
 
   function blobUrl(blob, bucket) {
     const url = URL.createObjectURL(blob);
@@ -166,6 +198,20 @@
       img.alt = '';
       img.src = `https://i.ytimg.com/vi/${item.youtubeId}/hqdefault.jpg`;
       thumb.appendChild(img);
+    } else if (item.kind === 'facebook') {
+      const cover = sourceOf(item, thumbUrls);
+      if (cover) {
+        const img = document.createElement('img');
+        img.loading = 'lazy';
+        img.alt = '';
+        img.src = cover;
+        thumb.appendChild(img);
+      } else {
+        const ph = document.createElement('div');
+        ph.className = 'learn-fb-placeholder';
+        ph.innerHTML = `${FB_SVG}<span>${isVerticalFacebook(item.facebookUrl) ? 'Facebook Reel' : 'Facebook Video'}</span>`;
+        thumb.appendChild(ph);
+      }
     } else if (item.kind === 'video') {
       const video = document.createElement('video');
       video.muted = true;
@@ -268,8 +314,30 @@
     el.viewerDesc.textContent = item.description || '';
     el.viewerPos.textContent = `${viewerIndex + 1} / ${items.length}`;
     el.btnPrev.disabled = el.btnNext.disabled = items.length < 2;
+    el.viewerMedia.classList.toggle('is-vertical', item.kind === 'facebook' && isVerticalFacebook(item.facebookUrl));
 
-    if (item.kind === 'youtube') {
+    // Always offer the original page: some Facebook clips can't be embedded by their owner's settings
+    const openUrl =
+      item.kind === 'facebook' ? item.facebookUrl : item.kind === 'youtube' ? `https://www.youtube.com/watch?v=${item.youtubeId}` : '';
+    el.viewerOpen.hidden = !openUrl;
+    if (openUrl) {
+      el.viewerOpen.href = openUrl;
+      el.viewerOpen.textContent = item.kind === 'facebook' ? 'เปิดใน Facebook ↗' : 'เปิดใน YouTube ↗';
+    }
+
+    if (item.kind === 'facebook') {
+      const frame = document.createElement('iframe');
+      const vertical = isVerticalFacebook(item.facebookUrl);
+      frame.src =
+        'https://www.facebook.com/plugins/video.php?href=' +
+        encodeURIComponent(item.facebookUrl) +
+        `&show_text=false&autoplay=true&width=${vertical ? 320 : 560}`;
+      frame.title = item.title;
+      frame.allow = 'autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share; fullscreen';
+      frame.allowFullscreen = true;
+      frame.scrolling = 'no';
+      el.viewerMedia.appendChild(frame);
+    } else if (item.kind === 'youtube') {
       const frame = document.createElement('iframe');
       frame.src = `https://www.youtube-nocookie.com/embed/${item.youtubeId}?autoplay=1&rel=0`;
       frame.title = item.title;
@@ -321,9 +389,10 @@
 
   /* ---------- add / edit form (staff) ---------- */
   function syncSourceFields() {
-    const yt = el.inSource.value === 'youtube';
-    el.fileGroup.hidden = yt;
-    el.ytGroup.hidden = !yt;
+    const source = el.inSource.value;
+    el.fileGroup.hidden = source !== 'file';
+    el.ytGroup.hidden = source !== 'youtube';
+    el.fbGroup.hidden = source !== 'facebook';
   }
 
   function openForm(item) {
@@ -339,9 +408,14 @@
     if (item) {
       el.inTitle.value = item.title || '';
       el.inDesc.value = item.description || '';
-      el.inSource.value = item.kind === 'youtube' ? 'youtube' : 'file';
+      el.inSource.value = item.kind === 'youtube' || item.kind === 'facebook' ? item.kind : 'file';
       if (item.kind === 'youtube') el.inYoutube.value = `https://youtu.be/${item.youtubeId}`;
+      if (item.kind === 'facebook') el.inFacebook.value = item.facebookUrl || '';
     }
+    el.coverHint.textContent =
+      item && item.kind === 'facebook' && (item.mediaBlob || item.mediaUrl)
+        ? 'มีภาพปกอยู่แล้ว — เลือกไฟล์ใหม่เฉพาะเมื่อต้องการเปลี่ยน'
+        : 'Facebook ไม่ให้ดึงภาพปกอัตโนมัติ ใส่ภาพหน้าจอจากคลิปได้ ถ้าไม่ใส่จะแสดงการ์ดสีฟ้าแทน';
     syncSourceFields();
     el.formDialog.showModal();
     el.inTitle.focus();
@@ -363,23 +437,33 @@
     const source = el.inSource.value;
     let kind;
     let youtubeId = '';
-    let file = null;
+    let facebookUrl = '';
+    let newBlob = null; // uploaded file (file source) or cover image (Facebook source)
+    let keepOld = false; // keep the existing item's stored media
 
     if (source === 'youtube') {
       youtubeId = parseYouTubeId(el.inYoutube.value);
       if (!youtubeId) return formFail('ลิงก์ YouTube ไม่ถูกต้อง (ลองคัดลอกลิงก์จากแถบที่อยู่หรือปุ่มแชร์ของ YouTube)');
       kind = 'youtube';
+    } else if (source === 'facebook') {
+      facebookUrl = parseFacebookUrl(el.inFacebook.value);
+      if (!facebookUrl) {
+        return formFail('ลิงก์ Facebook ไม่ถูกต้อง — ต้องเป็นลิงก์ Reel หรือวิดีโอ เช่น facebook.com/reel/ตัวเลข');
+      }
+      newBlob = el.inCover.files[0] || null;
+      if (newBlob && !newBlob.type.startsWith('image/')) return formFail('ภาพปกต้องเป็นไฟล์รูปภาพ');
+      keepOld = !newBlob && Boolean(existing) && existing.kind === 'facebook';
+      kind = 'facebook';
     } else {
-      file = el.inFile.files[0] || null;
-      if (file && !(file.type.startsWith('video/') || file.type.startsWith('image/'))) {
+      newBlob = el.inFile.files[0] || null;
+      if (newBlob && !(newBlob.type.startsWith('video/') || newBlob.type.startsWith('image/'))) {
         return formFail('รองรับเฉพาะไฟล์วิดีโอหรือรูปภาพ');
       }
-      const keepsOldFile = existing && existing.kind !== 'youtube';
-      if (!file && !keepsOldFile) return formFail('กรุณาเลือกไฟล์วิดีโอหรือรูป');
-      kind = file ? (file.type.startsWith('video/') ? 'video' : 'image') : existing.kind;
+      keepOld = !newBlob && Boolean(existing) && (existing.kind === 'video' || existing.kind === 'image');
+      if (!newBlob && !keepOld) return formFail('กรุณาเลือกไฟล์วิดีโอหรือรูป');
+      kind = newBlob ? (newBlob.type.startsWith('video/') ? 'video' : 'image') : existing.kind;
     }
 
-    const keep = source === 'file' && !file && existing;
     const nextOrder = items.reduce((max, it) => Math.max(max, it.order ?? 0), -1) + 1;
     const item = {
       id: existing ? existing.id : `l-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -388,8 +472,9 @@
       description: el.inDesc.value.trim(),
       kind,
       youtubeId,
-      mediaBlob: file || (keep ? existing.mediaBlob || null : null),
-      mediaUrl: file ? '' : keep ? existing.mediaUrl || '' : '',
+      facebookUrl,
+      mediaBlob: newBlob || (keepOld ? existing.mediaBlob || null : null),
+      mediaUrl: newBlob ? '' : keepOld ? existing.mediaUrl || '' : '',
       mediaBlobB: null,
       mediaUrlB: '',
     };

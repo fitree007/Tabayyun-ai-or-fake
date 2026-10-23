@@ -210,6 +210,7 @@
       <div class="learn-viewer-body">
         <div class="learn-viewer-media" id="learnViewerMedia"></div>
         <p class="learn-viewer-desc" id="learnViewerDesc"></p>
+        <a class="learn-open-link" id="learnViewerOpen" target="_blank" rel="noopener noreferrer" hidden></a>
         <div class="learn-viewer-nav">
           <button type="button" class="btn-nav" id="btnLearnPrev">ก่อนหน้า</button>
           <span class="learn-viewer-pos" id="learnViewerPos"></span>
@@ -241,6 +242,7 @@
           <select id="learnInputSource" class="form-select">
             <option value="file">อัปโหลดไฟล์ (วิดีโอหรือรูป)</option>
             <option value="youtube">ลิงก์ YouTube</option>
+            <option value="facebook">ลิงก์ Facebook (Reel / วิดีโอ)</option>
           </select>
         </div>
         <div class="form-group" id="learnFileGroup">
@@ -251,6 +253,14 @@
         <div class="form-group" id="learnYoutubeGroup" hidden>
           <label for="learnInputYoutube">ลิงก์ YouTube *</label>
           <input type="url" id="learnInputYoutube" class="form-input" placeholder="https://www.youtube.com/watch?v=..." />
+        </div>
+        <div class="form-group" id="learnFacebookGroup" hidden>
+          <label for="learnInputFacebook">ลิงก์ Facebook Reel / วิดีโอ *</label>
+          <input type="url" id="learnInputFacebook" class="form-input" placeholder="https://www.facebook.com/reel/..." />
+          <small class="form-hint">คลิปต้องเป็นสาธารณะ ถ้าเล่นในเว็บไม่ได้ ให้เปิดคลิปในเบราว์เซอร์แล้วคัดลอกลิงก์จากแถบที่อยู่ (แบบ facebook.com/reel/ตัวเลข)</small>
+          <label for="learnInputCover" style="margin-top:0.5rem">ภาพปก (ไม่บังคับ)</label>
+          <input type="file" id="learnInputCover" class="form-input" accept="image/*" />
+          <small class="form-hint" id="learnCoverHint">Facebook ไม่ให้ดึงภาพปกอัตโนมัติ ใส่ภาพหน้าจอจากคลิปได้ ถ้าไม่ใส่จะแสดงการ์ดสีฟ้าแทน</small>
         </div>
         <p class="form-error" id="learnFormError" hidden></p>
         <div class="form-actions">
