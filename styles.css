@@ -885,6 +885,22 @@ dialog::backdrop {
 .form-actions { display: flex; gap: 0.75rem; justify-content: flex-end; flex-wrap: wrap; }
 .form-actions #btnDeleteInForm { margin-right: auto; }
 
+/* Ready-made title chips under the question title field */
+.quick-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.15rem; }
+.quick-chip {
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.quick-chip:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.quick-chip[aria-pressed="true"] { background: var(--color-primary-soft); border-color: var(--color-primary); color: var(--color-primary); font-weight: 600; }
+
 .button-checkbox-group { display: flex; flex-wrap: wrap; gap: 0.55rem; }
 .button-option-pill {
   display: inline-flex;

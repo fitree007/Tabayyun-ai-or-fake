@@ -180,6 +180,7 @@ const els = {
   formSectionTitle: document.getElementById('formSectionTitle'),
   inputLayoutMode: document.getElementById('inputLayoutMode'),
   inputTitle: document.getElementById('inputTitle'),
+  titlePresets: document.getElementById('titlePresets'),
   inputMediaFile: document.getElementById('inputMediaFile'),
   secondMediaGroup: document.getElementById('secondMediaGroup'),
   inputMediaFileB: document.getElementById('inputMediaFileB'),
@@ -1124,6 +1125,61 @@ function updateFormModeUI() {
       els.inputCorrectAnswer.value = currentCorrect;
     }
   }
+  renderTitlePresets();
+}
+
+/* Ready-made question titles: one click fills the title (and ticks the matching answer buttons) */
+const TITLE_PRESETS = {
+  single: [
+    { title: 'ภาพนี้เป็น AI, จริง หรือ บิดเบือน?', buttons: ['ai', 'real', 'manipulated'] },
+    { title: 'คลิปนี้เป็น AI, จริง หรือ บิดเบือน?', buttons: ['ai', 'real', 'manipulated'] },
+    { title: 'ภาพนี้จริง หรือ AI?', buttons: ['ai', 'real'] },
+    { title: 'คลิปนี้จริง หรือ AI?', buttons: ['ai', 'real'] },
+    { title: 'ข่าวนี้จริง หรือ บิดเบือน?', buttons: ['real', 'manipulated'] },
+    { title: 'ภาพนี้ถูกตัดต่อหรือไม่?', buttons: ['real', 'manipulated'] },
+    { title: 'เสียงในคลิปนี้เป็นเสียงจริง หรือ AI?', buttons: ['ai', 'real'] },
+    { title: 'ใบหน้าในคลิปนี้จริง หรือ Deepfake (AI)?', buttons: ['ai', 'real'] },
+  ],
+  compare: [
+    { title: 'ภาพไหนสร้างด้วย AI?' },
+    { title: 'คลิปไหนสร้างด้วย AI?' },
+    { title: 'ซ้ายหรือขวา อันไหนคือ AI?' },
+  ],
+};
+
+function renderTitlePresets() {
+  const mode = els.inputLayoutMode.value === 'compare' ? 'compare' : 'single';
+  const presets = TITLE_PRESETS[mode];
+  // a ready-made title from the other mode no longer fits ("ภาพไหนสร้างด้วย AI?" in single mode) — clear it
+  const otherMode = mode === 'compare' ? 'single' : 'compare';
+  if (TITLE_PRESETS[otherMode].some((p) => p.title === els.inputTitle.value.trim())) els.inputTitle.value = '';
+  els.titlePresets.innerHTML = '';
+  presets.forEach((preset) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'quick-chip';
+    chip.textContent = preset.title;
+    chip.addEventListener('click', () => {
+      els.inputTitle.value = preset.title;
+      if (preset.buttons) {
+        document.querySelectorAll('input[name="formEnabledBtn"]').forEach((chk) => {
+          chk.checked = preset.buttons.includes(chk.value);
+        });
+        // keep the chosen correct answer among the visible buttons
+        if (!preset.buttons.includes(els.inputCorrectAnswer.value)) els.inputCorrectAnswer.value = preset.buttons[0];
+      }
+      syncTitlePresets();
+    });
+    els.titlePresets.appendChild(chip);
+  });
+  syncTitlePresets();
+}
+
+function syncTitlePresets() {
+  const current = els.inputTitle.value.trim();
+  els.titlePresets.querySelectorAll('.quick-chip').forEach((chip) => {
+    chip.setAttribute('aria-pressed', String(chip.textContent === current));
+  });
 }
 
 async function handleSaveQuestion(e) {
@@ -1222,6 +1278,7 @@ function populateFormForEdit(question) {
   updateFormModeUI();
 
   els.inputTitle.value = question.title || '';
+  syncTitlePresets();
   els.inputCorrectAnswer.value = question.correctAnswer || 'ai';
   els.inputExplanation.value = question.explanation || '';
 
@@ -1661,6 +1718,7 @@ function bindEvents() {
 
   // Question Manager Form Controls
   els.inputLayoutMode.addEventListener('change', updateFormModeUI);
+  els.inputTitle.addEventListener('input', syncTitlePresets);
   els.questionForm.addEventListener('submit', handleSaveQuestion);
   els.btnCancelEdit.addEventListener('click', resetQuestionForm);
 
