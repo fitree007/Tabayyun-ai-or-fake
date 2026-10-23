@@ -1132,6 +1132,12 @@ function setupPen() {
   });
   wrap.addEventListener('pointermove', (e) => {
     if (!press || e.pointerId !== press.id) return;
+    // The release can happen where this page never hears it (over a YouTube/Facebook frame, outside the
+    // window). If the button is no longer down, the stroke is over — don't keep drawing after the cursor.
+    if ((e.buttons & 1) === 0) {
+      finishStroke();
+      return;
+    }
     if (!pen.current) {
       if (Math.hypot(e.clientX - press.x, e.clientY - press.y) < PEN_MIN_MOVE) return;
       pen.current = { points: [press.start], endedAt: 0 };
@@ -1147,8 +1153,7 @@ function setupPen() {
     const coalesced = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
     (coalesced.length ? coalesced : [e]).forEach((ev) => pen.current.points.push(point(ev)));
   });
-  const end = (e) => {
-    if (!press || e.pointerId !== press.id) return;
+  const finishStroke = () => {
     if (pen.current) {
       pen.current.endedAt = performance.now();
       pen.current = null;
@@ -1157,8 +1162,17 @@ function setupPen() {
     }
     press = null;
   };
+  const end = (e) => {
+    if (!press || e.pointerId !== press.id) return;
+    finishStroke();
+  };
   wrap.addEventListener('pointerup', end);
   wrap.addEventListener('pointercancel', end);
+  wrap.addEventListener('lostpointercapture', end);
+  // a release anywhere else on the page, or leaving the window / tab, also ends the stroke
+  window.addEventListener('pointerup', end, true);
+  window.addEventListener('pointercancel', end, true);
+  window.addEventListener('blur', () => press && finishStroke());
   wrap.addEventListener(
     'click',
     (e) => {
