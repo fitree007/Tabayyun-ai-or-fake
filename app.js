@@ -1044,11 +1044,11 @@ function revealAnswer(q, selectedChoice) {
     }
   });
 
-  // Show Feedback & Explanation Banner (always opens expanded; the host can collapse it to point at the media)
+  // Show Feedback & Explanation Banner — collapsed by default so the media stays in view; "แสดงเฉลย" opens it
   const correctMeta = CHOICE_META[q.correctAnswer] || { icon: '', label: q.correctAnswer };
   els.feedbackBanner.hidden = false;
   els.feedbackBanner.className = `feedback-banner ${isCorrect ? 'correct' : 'wrong'}`;
-  setFeedbackCollapsed(false);
+  setFeedbackCollapsed(true);
 
   if (selectedChoice === 'timeout') {
     els.feedbackStatusText.textContent = `หมดเวลา เฉลยคือ "${correctMeta.label}"`;
