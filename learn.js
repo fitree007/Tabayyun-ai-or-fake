@@ -60,51 +60,8 @@
   let viewerIndex = -1;
 
   /* ---------- helpers ---------- */
-  function parseYouTubeId(raw) {
-    const text = (raw || '').trim();
-    if (!text) return '';
-    try {
-      const u = new URL(text);
-      const host = u.hostname.replace(/^www\.|^m\./, '');
-      let id = '';
-      if (host === 'youtu.be') id = u.pathname.slice(1).split('/')[0];
-      else if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
-        if (u.pathname === '/watch') id = u.searchParams.get('v') || '';
-        else {
-          const m = u.pathname.match(/^\/(?:embed|shorts|live|v)\/([\w-]{11})/);
-          if (m) id = m[1];
-        }
-      }
-      return /^[\w-]{11}$/.test(id) ? id : '';
-    } catch (_) {
-      return '';
-    }
-  }
-
-  /** Accepts Facebook reel / video / share links; returns a normalised https://www.facebook.com/... URL or ''. */
-  function parseFacebookUrl(raw) {
-    const text = (raw || '').trim();
-    if (!text) return '';
-    try {
-      const u = new URL(text);
-      const host = u.hostname.toLowerCase();
-      if (host === 'fb.watch') return u.pathname.length > 1 ? `https://fb.watch${u.pathname}` : '';
-      if (!/(^|\.)facebook\.com$/.test(host)) return '';
-      const path = u.pathname;
-      const looksLikeVideo =
-        /^\/reel\/\d+/.test(path) ||
-        /^\/share\/(r|v)\/[\w-]+/.test(path) ||
-        /\/videos\/(?:[\w.-]+\/)?\d+/.test(path) ||
-        (path === '/watch' || path === '/watch/') && u.searchParams.get('v');
-      if (!looksLikeVideo) return '';
-      const keep = path.startsWith('/watch') ? `?v=${encodeURIComponent(u.searchParams.get('v'))}` : '';
-      return `https://www.facebook.com${path.replace(/\/+$/, '')}${keep}`;
-    } catch (_) {
-      return '';
-    }
-  }
-
-  const isVerticalFacebook = (url) => /\/reel\/|\/share\/r\//.test(url || '');
+  const { parseYouTubeId, parseFacebookUrl, isVerticalFacebook, youtubeEmbedUrl, facebookEmbedUrl, youtubeThumb } =
+    window.mediaLinks;
 
   function blobUrl(blob, bucket) {
     const url = URL.createObjectURL(blob);
@@ -196,7 +153,7 @@
       const img = document.createElement('img');
       img.loading = 'lazy';
       img.alt = '';
-      img.src = `https://i.ytimg.com/vi/${item.youtubeId}/hqdefault.jpg`;
+      img.src = youtubeThumb(item.youtubeId);
       thumb.appendChild(img);
     } else if (item.kind === 'facebook') {
       const cover = sourceOf(item, thumbUrls);
@@ -327,11 +284,7 @@
 
     if (item.kind === 'facebook') {
       const frame = document.createElement('iframe');
-      const vertical = isVerticalFacebook(item.facebookUrl);
-      frame.src =
-        'https://www.facebook.com/plugins/video.php?href=' +
-        encodeURIComponent(item.facebookUrl) +
-        `&show_text=false&autoplay=true&width=${vertical ? 320 : 560}`;
+      frame.src = facebookEmbedUrl(item.facebookUrl, { autoplay: true });
       frame.title = item.title;
       frame.allow = 'autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share; fullscreen';
       frame.allowFullscreen = true;
@@ -339,11 +292,12 @@
       el.viewerMedia.appendChild(frame);
     } else if (item.kind === 'youtube') {
       const frame = document.createElement('iframe');
-      frame.src = `https://www.youtube-nocookie.com/embed/${item.youtubeId}?autoplay=1&rel=0`;
+      frame.src = youtubeEmbedUrl(item.youtubeId, { autoplay: true });
       frame.title = item.title;
       frame.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
       frame.allowFullscreen = true;
       frame.referrerPolicy = 'strict-origin-when-cross-origin';
+      watchEmbedAudio(frame); // volume / mute from the sound panel (app.js)
       el.viewerMedia.appendChild(frame);
     } else {
       const holder = [];

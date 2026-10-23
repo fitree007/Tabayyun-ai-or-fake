@@ -993,6 +993,21 @@ dialog::backdrop {
   place-items: center;
 }
 .thumb-box img, .thumb-box video { width: 100%; height: 100%; object-fit: cover; }
+.thumb-fb {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #1877f2, #0b4fb3);
+  color: #fff;
+  font: 700 1.4rem/1 Arial, Helvetica, sans-serif;
+}
+
+/* Linked YouTube / Facebook clip inside a game card */
+.media-embed { width: 100%; height: 100%; border: 0; display: block; background: var(--media-bg); }
+.media-embed.is-vertical { width: auto; height: 100%; aspect-ratio: 9 / 16; max-width: 100%; margin: 0 auto; }
+.embed-catcher { position: absolute; inset: 0; z-index: 4; display: none; }
+.stage-wrap.pen-on .embed-catcher { display: block; cursor: crosshair; }
 .question-row-info { min-width: 0; }
 .question-row-title { font-weight: 600; font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .question-row-meta { font-size: 0.78rem; color: var(--text-muted); display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.2rem; }

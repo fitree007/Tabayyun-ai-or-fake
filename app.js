@@ -94,7 +94,7 @@ const state = {
   sfxOn: true,
   sfxVolume: 0.7,
   videoSoundOn: true,
-  videoVolume: 0.8,
+  videoVolume: 0.5, // default: sound on at 50%
   timerOption: 0, // 0 = off, 10 = 10s, 15 = 15s, 20 = 20s
   timerRemaining: 0,
   timerInterval: null,
@@ -182,6 +182,13 @@ const els = {
   inputTitle: document.getElementById('inputTitle'),
   titlePresets: document.getElementById('titlePresets'),
   inputMediaFile: document.getElementById('inputMediaFile'),
+  mediaSourceGroup: document.getElementById('mediaSourceGroup'),
+  inputMediaSource: document.getElementById('inputMediaSource'),
+  mediaLinkGroup: document.getElementById('mediaLinkGroup'),
+  inputMediaLink: document.getElementById('inputMediaLink'),
+  inputMediaLinkLabel: document.getElementById('inputMediaLinkLabel'),
+  mediaLinkHint: document.getElementById('mediaLinkHint'),
+  mainFileGroup: document.getElementById('mainFileGroup'),
   secondMediaGroup: document.getElementById('secondMediaGroup'),
   inputMediaFileB: document.getElementById('inputMediaFileB'),
   enabledButtonsGroup: document.getElementById('enabledButtonsGroup'),
@@ -360,8 +367,11 @@ function loadSettings() {
     const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
     if (typeof saved.sfxOn === 'boolean') state.sfxOn = saved.sfxOn;
     if (typeof saved.sfxVolume === 'number') state.sfxVolume = saved.sfxVolume;
-    if (typeof saved.videoSoundOn === 'boolean') state.videoSoundOn = saved.videoSoundOn;
-    if (typeof saved.videoVolume === 'number') state.videoVolume = saved.videoVolume;
+    // settings saved before v2 used an 80% default — start those browsers at the new 50% default once
+    if (saved.settingsVersion >= 2) {
+      if (typeof saved.videoSoundOn === 'boolean') state.videoSoundOn = saved.videoSoundOn;
+      if (typeof saved.videoVolume === 'number') state.videoVolume = saved.videoVolume;
+    }
     if (saved.theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
   } catch (_) {
     /* storage unavailable — keep defaults */
@@ -373,6 +383,7 @@ function saveSettings() {
     localStorage.setItem(
       SETTINGS_KEY,
       JSON.stringify({
+        settingsVersion: 2,
         sfxOn: state.sfxOn,
         sfxVolume: state.sfxVolume,
         videoSoundOn: state.videoSoundOn,
@@ -401,6 +412,31 @@ function syncSoundUI() {
   els.btnMuteAll.textContent = allMuted ? 'เปิดเสียงทั้งหมด' : 'ปิดเสียงทั้งหมด';
 
   document.querySelectorAll('video.media-element').forEach(applyVideoAudio);
+  document.querySelectorAll('iframe[data-provider="youtube"]').forEach(applyEmbedAudio);
+}
+
+/* YouTube players accept volume / mute commands (enablejsapi=1), so they follow the sound panel too.
+   Facebook's player has no such interface — its own buttons control its sound. */
+function sendToYouTube(frame, func, args = []) {
+  try {
+    frame.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args }), 'https://www.youtube-nocookie.com');
+  } catch (_) {
+    /* frame gone */
+  }
+}
+
+function applyEmbedAudio(frame) {
+  const muted = !state.videoSoundOn || state.videoVolume === 0;
+  sendToYouTube(frame, 'setVolume', [Math.round(state.videoVolume * 100)]);
+  sendToYouTube(frame, muted ? 'mute' : 'unMute');
+}
+
+/** The player only takes commands once it is ready, so repeat a few times after the frame loads. */
+function watchEmbedAudio(frame) {
+  frame.dataset.provider = 'youtube';
+  frame.addEventListener('load', () => {
+    [400, 1500, 3500].forEach((ms) => setTimeout(() => frame.isConnected && applyEmbedAudio(frame), ms));
+  });
 }
 
 /** Apply the host's video-audio settings to a <video>. Compare mode stays muted. */
@@ -476,20 +512,26 @@ function renderCurrentQuestion(playRevealSfx = true) {
 
   const q = state.questions[state.currentIndex];
   els.progressBadge.textContent = `ข้อที่ ${state.currentIndex + 1} / ${state.questions.length}`;
+  const isEmbed = q.layoutMode !== 'compare' && (q.mediaType === 'youtube' || q.mediaType === 'facebook');
 
   // Default smart titles if custom title wasn't specified
   const defaultTitle =
     q.layoutMode === 'compare'
       ? 'Which image is AI? (ฝั่งไหนคือ AI?)'
-      : q.mediaType === 'video'
+      : q.mediaType === 'video' || isEmbed
       ? 'คลิปวิดีโอนี้... AI, จริง หรือ บิดเบือน?'
       : 'ภาพนี้... AI, จริง หรือ บิดเบือน?';
 
   els.questionTitle.textContent = q.title || defaultTitle;
   els.questionSubtitle.textContent =
-    (q.layoutMode === 'compare'
+    q.layoutMode === 'compare'
       ? 'มี 1 ฝั่งที่สร้างด้วย AI และอีก 1 ฝั่งเป็นของจริง คลิกที่ภาพหรือปุ่มด้านขวาเพื่อตอบ'
-      : 'สังเกตรายละเอียดให้ดี แล้วกดปุ่มคำตอบด้านขวา');
+      : isEmbed
+      ? 'กดเล่นคลิปในกรอบ แล้วกดปุ่มคำตอบด้านขวา • อยากวงจุดบนคลิป กด P (ปากกา) และกด P อีกครั้งเพื่อกลับไปควบคุมคลิป'
+      : 'สังเกตรายละเอียดให้ดี แล้วกดปุ่มคำตอบด้านขวา';
+
+  // A cross-origin player can't be clicked through the pen, so linked clips start with the pen off
+  setPen(isEmbed ? false : pen.preferred, { auto: true });
 
   els.mediaStage.className = q.layoutMode === 'compare' ? 'media-stage mode-compare' : 'media-stage mode-single';
 
@@ -499,9 +541,14 @@ function renderCurrentQuestion(playRevealSfx = true) {
   const cardA = createMediaCardElement({
     mediaType: q.mediaType || 'image',
     src: srcA,
-    badgeText: q.layoutMode === 'compare' ? 'ฝั่งซ้าย (A)' : q.mediaType === 'video' ? 'วิดีโอ' : 'ภาพนิ่ง',
+    badgeText:
+      q.layoutMode === 'compare'
+        ? 'ฝั่งซ้าย (A)'
+        : { video: 'วิดีโอ', youtube: 'YouTube', facebook: 'Facebook' }[q.mediaType] || 'ภาพนิ่ง',
     choiceKey: q.layoutMode === 'compare' ? 'left' : null,
     muteVideo: q.layoutMode === 'compare',
+    youtubeId: q.youtubeId,
+    facebookUrl: q.facebookUrl,
   });
   els.mediaStage.appendChild(cardA);
 
@@ -535,7 +582,7 @@ function renderCurrentQuestion(playRevealSfx = true) {
   }
 }
 
-function createMediaCardElement({ mediaType, src, badgeText, choiceKey, muteVideo = false }) {
+function createMediaCardElement({ mediaType, src, badgeText, choiceKey, muteVideo = false, youtubeId, facebookUrl }) {
   const card = document.createElement('div');
   card.className = 'media-card';
   if (state.loupeEnabled && mediaType === 'image') {
@@ -554,7 +601,26 @@ function createMediaCardElement({ mediaType, src, badgeText, choiceKey, muteVide
   badges.appendChild(badge);
   card.appendChild(badges);
 
-  if (mediaType === 'video') {
+  if (mediaType === 'youtube' || mediaType === 'facebook') {
+    // Linked clip, played in the provider's own player (its own play / volume buttons)
+    const links = window.mediaLinks;
+    const frame = document.createElement('iframe');
+    frame.className = 'media-embed';
+    if (mediaType === 'facebook' && links.isVerticalFacebook(facebookUrl)) frame.classList.add('is-vertical');
+    frame.src = mediaType === 'youtube' ? links.youtubeEmbedUrl(youtubeId) : links.facebookEmbedUrl(facebookUrl);
+    frame.title = badgeText;
+    frame.allow = 'autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share; fullscreen';
+    frame.allowFullscreen = true;
+    frame.referrerPolicy = 'strict-origin-when-cross-origin';
+    if (mediaType === 'youtube') watchEmbedAudio(frame);
+    card.appendChild(frame);
+    // Clicks inside a cross-origin iframe never reach the page, so with the pen on this layer
+    // catches the drag for drawing (it is hidden while the pen is off, leaving the player usable)
+    const catcher = document.createElement('div');
+    catcher.className = 'embed-catcher';
+    card.appendChild(catcher);
+    card.classList.add('has-embed');
+  } else if (mediaType === 'video') {
     const video = document.createElement('video');
     video.className = `media-element ${state.coverFit ? 'cover-fit' : ''}`;
     video.controls = true;
@@ -846,7 +912,7 @@ const PEN_HOLD_MS = 2200;
 const PEN_FADE_MS = 1300;
 const PEN_MIN_MOVE = 5; // px a press must travel before it becomes a stroke — a plain click stays a click
 const VIDEO_CONTROLS_ZONE = 56; // px at the bottom of a video left free for its native controls
-const pen = { on: false, strokes: [], current: null, raf: 0, ctx: null, w: 0, h: 0 };
+const pen = { on: false, preferred: true, strokes: [], current: null, raf: 0, ctx: null, w: 0, h: 0 };
 
 /* The canvas only displays strokes (pointer-events: none). Input is read on the stage, so with the pen on
    (the default) clicks still reach the media: video play/pause and controls, picking a card in compare mode. */
@@ -938,8 +1004,11 @@ function sizePenCanvas() {
   drawPen();
 }
 
-function setPen(on) {
+/** `auto`: switched by the app (linked clip shown), so the host's own on/off preference is kept. */
+function setPen(on, { auto = false } = {}) {
   pen.on = on;
+  // toggling on a linked clip is a temporary "draw now" — don't let it change the default for normal questions
+  if (!auto && !els.mediaStage.querySelector('.has-embed')) pen.preferred = on;
   els.stageWrap.classList.toggle('pen-on', on);
   els.btnPenToggle.setAttribute('aria-pressed', String(on));
   els.btnFsPen.setAttribute('aria-pressed', String(on));
@@ -1105,10 +1174,31 @@ function stopTimer() {
 /* ==========================================================================
    9. Question Manager (Upload Images & Videos, Configure Buttons)
    ========================================================================== */
+/** Show the file input or the link input, depending on "ที่มาของสื่อ" (links: single mode only). */
+function syncMediaSourceUI() {
+  const isCompare = els.inputLayoutMode.value === 'compare';
+  if (isCompare) els.inputMediaSource.value = 'file';
+  const source = els.inputMediaSource.value;
+  els.mediaSourceGroup.hidden = isCompare;
+  els.mainFileGroup.hidden = source !== 'file';
+  els.mediaLinkGroup.hidden = source === 'file';
+  if (source === 'youtube') {
+    els.inputMediaLinkLabel.textContent = 'ลิงก์ YouTube *';
+    els.inputMediaLink.placeholder = 'https://www.youtube.com/watch?v=...';
+    els.mediaLinkHint.textContent = 'รองรับลิงก์ watch, youtu.be และ shorts — คลิปต้องเปิดให้ฝังได้';
+  } else if (source === 'facebook') {
+    els.inputMediaLinkLabel.textContent = 'ลิงก์ Facebook Reel / วิดีโอ *';
+    els.inputMediaLink.placeholder = 'https://www.facebook.com/reel/...';
+    els.mediaLinkHint.textContent =
+      'คลิปต้องเป็นสาธารณะ ถ้าเล่นในเว็บไม่ได้ ให้เปิดคลิปในเบราว์เซอร์แล้วคัดลอกลิงก์จากแถบที่อยู่ (แบบ facebook.com/reel/ตัวเลข)';
+  }
+}
+
 function updateFormModeUI() {
   const isCompare = els.inputLayoutMode.value === 'compare';
   els.secondMediaGroup.hidden = !isCompare;
   els.enabledButtonsGroup.hidden = isCompare;
+  syncMediaSourceUI();
 
   const currentCorrect = els.inputCorrectAnswer.value;
   if (isCompare) {
@@ -1190,10 +1280,26 @@ async function handleSaveQuestion(e) {
   const existing = editId ? state.questions.find((q) => q.id === editId) : null;
 
   const layoutMode = els.inputLayoutMode.value;
-  const fileA = els.inputMediaFile.files[0];
+  const source = layoutMode === 'compare' ? 'file' : els.inputMediaSource.value; // file | youtube | facebook
+  const fileA = source === 'file' ? els.inputMediaFile.files[0] : null;
   const fileB = els.inputMediaFileB.files[0];
+  const isFileMedia = (type) => type === 'image' || type === 'video';
 
-  if (!existing && !fileA) {
+  let youtubeId = '';
+  let facebookUrl = '';
+  if (source === 'youtube') {
+    youtubeId = window.mediaLinks.parseYouTubeId(els.inputMediaLink.value);
+    if (!youtubeId) {
+      alert('ลิงก์ YouTube ไม่ถูกต้องครับ (ลองคัดลอกลิงก์จากแถบที่อยู่หรือปุ่มแชร์ของ YouTube)');
+      return;
+    }
+  } else if (source === 'facebook') {
+    facebookUrl = window.mediaLinks.parseFacebookUrl(els.inputMediaLink.value);
+    if (!facebookUrl) {
+      alert('ลิงก์ Facebook ไม่ถูกต้องครับ — ต้องเป็นลิงก์ Reel หรือวิดีโอ เช่น facebook.com/reel/ตัวเลข');
+      return;
+    }
+  } else if (!fileA && !(existing && isFileMedia(existing.mediaType))) {
     alert('กรุณาเลือกไฟล์ ภาพ หรือ วิดีโอ อย่างน้อย 1 ไฟล์ครับ');
     return;
   }
@@ -1220,11 +1326,14 @@ async function handleSaveQuestion(e) {
     }
   }
 
-  const mediaTypeA = fileA
-    ? fileA.type.startsWith('video/')
-      ? 'video'
-      : 'image'
-    : existing?.mediaType || 'image';
+  const mediaTypeA =
+    source !== 'file'
+      ? source
+      : fileA
+      ? fileA.type.startsWith('video/')
+        ? 'video'
+        : 'image'
+      : existing?.mediaType || 'image';
 
   const mediaTypeB = fileB
     ? fileB.type.startsWith('video/')
@@ -1239,8 +1348,11 @@ async function handleSaveQuestion(e) {
     subtitle: '',
     layoutMode,
     mediaType: mediaTypeA,
-    mediaBlob: fileA || existing?.mediaBlob || null,
-    mediaUrl: fileA ? '' : existing?.mediaUrl || '',
+    // a linked clip has no stored file; switching from a file to a link drops (and, online, deletes) the file
+    mediaBlob: source === 'file' ? fileA || existing?.mediaBlob || null : null,
+    mediaUrl: source === 'file' ? (fileA ? '' : existing?.mediaUrl || '') : '',
+    youtubeId,
+    facebookUrl,
     mediaTypeB,
     mediaBlobB: fileB || existing?.mediaBlobB || null,
     mediaUrlB: fileB ? '' : existing?.mediaUrlB || '',
@@ -1277,6 +1389,11 @@ function populateFormForEdit(question) {
   els.formSectionTitle.textContent = `แก้ไขข้อคำถาม:${question.title || 'ไม่มีชื่อหัวข้อ'}`;
   els.inputLayoutMode.value = question.layoutMode || 'single';
   updateFormModeUI();
+  const source = question.mediaType === 'youtube' || question.mediaType === 'facebook' ? question.mediaType : 'file';
+  els.inputMediaSource.value = source;
+  syncMediaSourceUI();
+  els.inputMediaLink.value =
+    source === 'youtube' ? `https://youtu.be/${question.youtubeId}` : source === 'facebook' ? question.facebookUrl || '' : '';
 
   els.inputTitle.value = question.title || '';
   syncTitlePresets();
@@ -1314,23 +1431,31 @@ async function renderQuestionsManagerList() {
     const btnLabels = escapeHtml(
       (q.enabledButtons || ['ai', 'real', 'manipulated']).map((k) => CHOICE_META[k]?.label || k).join(' / ')
     );
-    const title = escapeHtml(q.title || (q.mediaType === 'video' ? 'โจทย์คลิปวิดีโอ' : 'โจทย์ภาพนิ่ง'));
+    const isClip = q.mediaType === 'video' || q.mediaType === 'youtube' || q.mediaType === 'facebook';
+    const title = escapeHtml(q.title || (isClip ? 'โจทย์คลิปวิดีโอ' : 'โจทย์ภาพนิ่ง'));
+    const mediaLabel = { video: 'วิดีโอ', youtube: 'YouTube', facebook: 'Facebook' }[q.mediaType] || 'ภาพ';
+    let thumb;
+    if (q.mediaType === 'youtube') {
+      thumb = `<img src="${escapeHtml(window.mediaLinks.youtubeThumb(q.youtubeId, 'mqdefault'))}" alt="" />`;
+    } else if (q.mediaType === 'facebook') {
+      thumb = '<span class="thumb-fb" aria-hidden="true">f</span>';
+    } else if (q.mediaType === 'video') {
+      thumb = `<video src="${previewUrl}" muted playsinline></video>`;
+    } else {
+      thumb = `<img src="${previewUrl}" alt="" />`;
+    }
 
     row.innerHTML = `
       <div class="question-row-preview">
         <div class="thumb-box">
-          ${
-            q.mediaType === 'video'
-              ? `<video src="${previewUrl}" muted playsinline></video>`
-              : `<img src="${previewUrl}" alt="" />`
-          }
+          ${thumb}
         </div>
         <div class="question-row-info">
           <div class="question-row-title">
             ข้อที่ ${idx + 1}: ${title}
           </div>
           <div class="question-row-meta">
-            <span class="tag-mini">${q.mediaType === 'video' ? 'วิดีโอ' : 'ภาพ'}</span>
+            <span class="tag-mini">${mediaLabel}</span>
             <span class="tag-mini">ปุ่ม: ${btnLabels}</span>
             <span class="tag-mini tag-answer">เฉลย: ${escapeHtml(correctMeta.label)}</span>
           </div>
@@ -1719,6 +1844,7 @@ function bindEvents() {
 
   // Question Manager Form Controls
   els.inputLayoutMode.addEventListener('change', updateFormModeUI);
+  els.inputMediaSource.addEventListener('change', syncMediaSourceUI);
   els.inputTitle.addEventListener('input', syncTitlePresets);
   els.questionForm.addEventListener('submit', handleSaveQuestion);
   els.btnCancelEdit.addEventListener('click', resetQuestionForm);
