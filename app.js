@@ -123,7 +123,8 @@ const els = {
   inputImportPack: document.getElementById('inputImportPack'),
   btnThemeToggle: document.getElementById('btnThemeToggle'),
   btnOpenManager: document.getElementById('btnOpenManager'),
-  btnDeleteCurrent: document.getElementById('btnDeleteCurrent'),
+  btnEditCurrent: document.getElementById('btnEditCurrent'),
+  btnDeleteInForm: document.getElementById('btnDeleteInForm'),
   loginDialog: document.getElementById('loginDialog'),
   btnCloseLogin: document.getElementById('btnCloseLogin'),
   loginForm: document.getElementById('loginForm'),
@@ -148,11 +149,6 @@ const els = {
   loupeStateText: document.getElementById('loupeStateText'),
   btnFitToggle: document.getElementById('btnFitToggle'),
   fitStateText: document.getElementById('fitStateText'),
-
-  liveButtonFilter: document.getElementById('liveButtonFilter'),
-  liveChkAi: document.getElementById('liveChkAi'),
-  liveChkReal: document.getElementById('liveChkReal'),
-  liveChkManipulated: document.getElementById('liveChkManipulated'),
 
   btnPrevQuestion: document.getElementById('btnPrevQuestion'),
   btnSkipQuestion: document.getElementById('btnSkipQuestion'),
@@ -249,9 +245,7 @@ function applyEditPermissions() {
   const edit = canEdit();
   const label = els.btnOpenManager.querySelector('span');
   if (label) label.textContent = edit ? 'เพิ่มรูป/วิดีโอ' : 'เข้าสู่ระบบสตาฟ';
-  els.btnDeleteCurrent.hidden = !edit;
-  const q = state.questions[state.currentIndex];
-  els.liveButtonFilter.style.display = edit && q && q.layoutMode !== 'compare' ? 'inline-flex' : 'none';
+  els.btnEditCurrent.hidden = !edit;
   els.staffChip.hidden = !(isRemote() && state.user);
   els.staffEmail.textContent = state.user ? state.user.email : '';
 }
@@ -408,21 +402,10 @@ function renderCurrentQuestion(playRevealSfx = true) {
   els.questionSubtitle.textContent =
     q.subtitle ||
     (q.layoutMode === 'compare'
-      ? 'มี 1 ฝั่งที่สร้างด้วย AI และอีก 1 ฝั่งเป็นของจริง คลิกที่ภาพหรือปุ่มด้านล่างเพื่อตอบ!'
-      : 'สังเกตรายละเอียดในสื่อให้ดี แล้วกดปุ่มเลือกคำตอบด้านล่าง (สามารถลากไฟล์ภาพ/วิดีโอมาวางบนหน้าจอเพื่อเพิ่มโจทย์ด่วนได้)');
+      ? 'มี 1 ฝั่งที่สร้างด้วย AI และอีก 1 ฝั่งเป็นของจริง คลิกที่ภาพหรือปุ่มด้านขวาเพื่อตอบ'
+      : 'สังเกตรายละเอียดให้ดี แล้วกดปุ่มคำตอบด้านขวา');
 
-  // Sync live button filter checkboxes for single mode
-  if (q.layoutMode === 'compare') {
-    els.liveButtonFilter.style.display = 'none';
-    els.mediaStage.className = 'media-stage mode-compare';
-  } else {
-    els.liveButtonFilter.style.display = canEdit() ? 'inline-flex' : 'none';
-    els.mediaStage.className = 'media-stage mode-single';
-    const enabled = q.enabledButtons || ['ai', 'real', 'manipulated'];
-    els.liveChkAi.checked = enabled.includes('ai');
-    els.liveChkReal.checked = enabled.includes('real');
-    els.liveChkManipulated.checked = enabled.includes('manipulated');
-  }
+  els.mediaStage.className = q.layoutMode === 'compare' ? 'media-stage mode-compare' : 'media-stage mode-single';
 
   // Build media card(s)
   els.mediaStage.innerHTML = '';
@@ -908,6 +891,7 @@ function resetQuestionForm() {
   els.editQuestionId.value = '';
   els.formSectionTitle.textContent = 'เพิ่มข้อคำถามใหม่';
   els.btnCancelEdit.hidden = true;
+  els.btnDeleteInForm.hidden = true;
   updateFormModeUI();
 }
 
@@ -927,6 +911,7 @@ function populateFormForEdit(question) {
   });
 
   els.btnCancelEdit.hidden = false;
+  els.btnDeleteInForm.hidden = false;
   els.questionForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -1169,31 +1154,6 @@ function bindEvents() {
     });
   });
 
-  // Live Button Filter Checkboxes (instantly toggle which answer buttons appear!)
-  [els.liveChkAi, els.liveChkReal, els.liveChkManipulated].forEach((chk) => {
-    chk.addEventListener('change', async () => {
-      if (state.questions.length === 0) return;
-      const q = state.questions[state.currentIndex];
-      if (q.layoutMode === 'compare') return;
-
-      const selected = [els.liveChkAi, els.liveChkReal, els.liveChkManipulated]
-        .filter((c) => c.checked)
-        .map((c) => c.value);
-
-      if (selected.length === 0) {
-        chk.checked = true;
-        return;
-      }
-
-      q.enabledButtons = selected;
-      await window.questionStore.saveQuestion(q);
-      renderAnswerButtons(q);
-      renderQuestionsManagerList();
-      // (live filter is only visible to editors, so this save is always permitted)
-      window.sfx.playTick(920);
-    });
-  });
-
   // Navigation Prev / Skip / Next
   els.btnPrevQuestion.addEventListener('click', () => {
     if (state.questions.length === 0) return;
@@ -1207,15 +1167,25 @@ function bindEvents() {
     renderCurrentQuestion(true);
   });
 
-  document.getElementById('btnDeleteCurrent').addEventListener('click', async () => {
+  // Edit the question on screen (answer buttons shown, correct answer, media, delete all live in the form)
+  els.btnEditCurrent.addEventListener('click', () => {
     const q = state.questions[state.currentIndex];
+    if (!q || !openManager()) return;
+    populateFormForEdit(q);
+  });
+
+  els.btnDeleteInForm.addEventListener('click', async () => {
+    const id = els.editQuestionId.value;
+    const idx = state.questions.findIndex((item) => item.id === id);
+    const q = state.questions[idx];
     if (!q) return;
-    if (!confirm(`ลบข้อที่ ${state.currentIndex + 1}${q.title ? ` "${q.title}"` : ''} ออกจากชุดโจทย์ใช่หรือไม่?`)) return;
+    if (!confirm(`ลบข้อที่ ${idx + 1}${q.title ? ` "${q.title}"` : ''} ออกจากชุดโจทย์ใช่หรือไม่?`)) return;
     await window.questionStore.deleteQuestion(q.id);
     state.questions = await window.questionStore.getAllQuestions();
     if (state.currentIndex >= state.questions.length) {
       state.currentIndex = Math.max(0, state.questions.length - 1);
     }
+    resetQuestionForm();
     renderQuestionsManagerList();
     renderCurrentQuestion(false);
   });
@@ -1296,18 +1266,6 @@ function bindEvents() {
     e.target.value = '';
   });
 
-  // Live Soundboard Buttons
-  document.querySelectorAll('.btn-sfx').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const type = btn.dataset.sfx;
-      if (type === 'drumroll') window.sfx.playDrumroll();
-      else if (type === 'heartbeat') window.sfx.playHeartbeatSuspense();
-      else if (type === 'reveal') window.sfx.playQuestionReveal();
-      else if (type === 'correct') window.sfx.playCorrect();
-      else if (type === 'wrong') window.sfx.playWrong();
-      else if (type === 'applause') window.sfx.playApplauseVictory();
-    });
-  });
 
   // Dialog Open/Close
   els.btnOpenManager.addEventListener('click', openManager);

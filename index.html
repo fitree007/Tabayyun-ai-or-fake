@@ -92,87 +92,67 @@
     </div>
   </div>
 
-  <!-- Main stage -->
+  <!-- Main stage: media on the left (85%), answer buttons on the right (15%) -->
   <main class="game-main">
-    <section class="question-header">
-      <h1 class="question-title" id="questionTitle">ภาพนี้คือ AI, ภาพจริง หรือ บิดเบือน?</h1>
-      <p class="question-subtitle" id="questionSubtitle">
-        สังเกตรายละเอียดในภาพหรือวิดีโอให้ดี แล้วเลือกคำตอบของคุณ
-      </p>
-    </section>
-
-    <div class="timer-wrapper" id="timerWrapper" hidden>
-      <div class="timer-track">
-        <div class="timer-fill" id="timerFill"></div>
-      </div>
-      <span class="timer-label" id="timerSeconds">15s</span>
-    </div>
-
-    <div class="media-stage mode-single" id="mediaStage">
-      <!-- Populated by app.js -->
-    </div>
-
-    <!-- Host toolbar -->
-    <div class="stage-toolbar">
-      <div class="toolbar-left">
-        <button type="button" class="btn-pill-toggle" id="btnLoupeToggle" aria-pressed="false" title="แว่นขยายดูจุดสังเกต (ปุ่มลัด Z)">
-          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/></svg>
-          <span>แว่นขยาย <span id="loupeStateText">OFF</span></span>
-        </button>
-
-        <button type="button" class="btn-pill-toggle" id="btnFitToggle" aria-pressed="false" title="สลับการแสดงผล เต็มกรอบ / พอดีภาพ">
-          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/></svg>
-          <span id="fitStateText">พอดีภาพ</span>
-        </button>
+    <section class="stage-col">
+      <div class="question-header">
+        <h1 class="question-title" id="questionTitle">ภาพนี้คือ AI, ภาพจริง หรือ บิดเบือน?</h1>
+        <p class="question-subtitle" id="questionSubtitle">
+          สังเกตรายละเอียดให้ดี แล้วกดปุ่มคำตอบด้านขวา
+        </p>
       </div>
 
-      <div class="toolbar-right">
-        <div class="live-button-filter" id="liveButtonFilter" title="เลือกปุ่มคำตอบที่แสดงในข้อนี้">
-          <span class="filter-label">ปุ่มที่แสดง</span>
-          <label class="chip-check">
-            <input type="checkbox" value="ai" id="liveChkAi" checked />
-            <span>AI</span>
-          </label>
-          <label class="chip-check">
-            <input type="checkbox" value="real" id="liveChkReal" checked />
-            <span>จริง</span>
-          </label>
-          <label class="chip-check">
-            <input type="checkbox" value="manipulated" id="liveChkManipulated" checked />
-            <span>บิดเบือน</span>
-          </label>
+      <div class="timer-wrapper" id="timerWrapper" hidden>
+        <div class="timer-track">
+          <div class="timer-fill" id="timerFill"></div>
+        </div>
+        <span class="timer-label" id="timerSeconds">15s</span>
+      </div>
+
+      <div class="stage-wrap">
+        <div class="media-stage mode-single" id="mediaStage">
+          <!-- Populated by app.js -->
         </div>
 
-        <button type="button" class="btn-pill-toggle btn-pill-danger" id="btnDeleteCurrent" title="ลบข้อนี้ออกจากชุดโจทย์">ลบข้อนี้</button>
-        <button type="button" class="btn-pill-toggle" id="btnPrevQuestion" title="ข้อก่อนหน้า">ก่อนหน้า</button>
-        <button type="button" class="btn-pill-toggle" id="btnSkipQuestion" title="ข้ามไปข้อถัดไป">ถัดไป</button>
+        <!-- Reveal banner (overlays the bottom of the media) -->
+        <section class="feedback-banner" id="feedbackBanner" hidden aria-live="assertive">
+          <div class="feedback-header">
+            <div class="feedback-status" id="feedbackStatusText">ถูกต้อง</div>
+            <div class="feedback-actions">
+              <button type="button" class="btn-next" id="btnNextAfterAnswer">ข้อถัดไป</button>
+            </div>
+          </div>
+          <p class="explanation-text" id="feedbackExplanationText"></p>
+        </section>
       </div>
-    </div>
 
-    <!-- Answer buttons -->
-    <div class="answer-choices-container" id="answerButtonsContainer" role="group" aria-label="ตัวเลือกคำตอบ">
-    </div>
+      <div class="stage-toolbar">
+        <div class="toolbar-left">
+          <button type="button" class="btn-pill-toggle" id="btnLoupeToggle" aria-pressed="false" title="แว่นขยายดูจุดสังเกต (ปุ่มลัด Z)">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/></svg>
+            <span>แว่นขยาย <span id="loupeStateText">OFF</span></span>
+          </button>
 
-    <!-- Reveal banner -->
-    <section class="feedback-banner" id="feedbackBanner" hidden aria-live="assertive">
-      <div class="feedback-header">
-        <div class="feedback-status" id="feedbackStatusText">ถูกต้อง</div>
-        <div class="feedback-actions">
-          <button type="button" class="btn-next" id="btnNextAfterAnswer">ข้อถัดไป</button>
+          <button type="button" class="btn-pill-toggle" id="btnFitToggle" aria-pressed="false" title="สลับการแสดงผล เต็มกรอบ / พอดีภาพ">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/></svg>
+            <span id="fitStateText">พอดีภาพ</span>
+          </button>
+        </div>
+
+        <div class="toolbar-right">
+          <button type="button" class="btn-pill-toggle" id="btnEditCurrent" title="แก้ไขข้อนี้ (ปุ่มที่แสดง เฉลย ไฟล์ ลบ)">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>
+            <span>แก้ไขข้อนี้</span>
+          </button>
+          <button type="button" class="btn-pill-toggle" id="btnPrevQuestion" title="ข้อก่อนหน้า">ก่อนหน้า</button>
+          <button type="button" class="btn-pill-toggle" id="btnSkipQuestion" title="ข้ามไปข้อถัดไป">ถัดไป</button>
         </div>
       </div>
-      <p class="explanation-text" id="feedbackExplanationText"></p>
     </section>
 
-    <!-- Host SFX dock -->
-    <aside class="soundboard-dock" aria-label="แผงเสียงเอฟเฟกต์สำหรับพิธีกร">
-      <span class="soundboard-label">เสียงเอฟเฟกต์</span>
-      <button type="button" class="btn-sfx" data-sfx="drumroll">รัวกลอง</button>
-      <button type="button" class="btn-sfx" data-sfx="heartbeat">หัวใจเต้น</button>
-      <button type="button" class="btn-sfx" data-sfx="reveal">เปิดภาพ</button>
-      <button type="button" class="btn-sfx" data-sfx="correct">ถูก</button>
-      <button type="button" class="btn-sfx" data-sfx="wrong">ผิด</button>
-      <button type="button" class="btn-sfx" data-sfx="applause">ปรบมือ</button>
+    <aside class="choice-col">
+      <div class="answer-choices-container" id="answerButtonsContainer" role="group" aria-label="ตัวเลือกคำตอบ">
+      </div>
     </aside>
   </main>
 
@@ -260,6 +240,7 @@
           </div>
 
           <div class="form-actions">
+            <button type="button" class="btn-nav btn-danger" id="btnDeleteInForm" hidden>ลบข้อนี้</button>
             <button type="button" class="btn-nav" id="btnCancelEdit" hidden>ยกเลิกการแก้ไข</button>
             <button type="submit" class="btn-nav primary" id="btnSaveQuestion">บันทึกข้อคำถาม</button>
           </div>
