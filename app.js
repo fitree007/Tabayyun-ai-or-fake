@@ -171,7 +171,8 @@ const els = {
   feedbackBanner: document.getElementById('feedbackBanner'),
   feedbackStatusText: document.getElementById('feedbackStatusText'),
   feedbackExplanationText: document.getElementById('feedbackExplanationText'),
-  btnNextAfterAnswer: document.getElementById('btnNextAfterAnswer'),
+  skipQuestionText: document.getElementById('skipQuestionText'),
+  btnFsNext: document.getElementById('btnFsNext'),
 
   managerDialog: document.getElementById('managerDialog'),
   btnCloseManager: document.getElementById('btnCloseManager'),
@@ -651,6 +652,7 @@ function renderCurrentQuestion(playRevealSfx = true) {
   cleanupObjectUrlsAndObservers();
   state.isAnswered = false;
   els.feedbackBanner.hidden = true;
+  updateNextLabels();
 
   if (state.questions.length === 0) {
     els.progressBadge.textContent = '0 / 0';
@@ -1062,8 +1064,25 @@ function revealAnswer(q, selectedChoice) {
       `ข้อนี้เฉลยคือ "${correctMeta.label}" (${correctMeta.subLabel || ''}) กดปุ่มถัดไปเพื่อเล่นข้อต่อไปได้เลย`
   );
 
-  const isLast = state.currentIndex === state.questions.length - 1;
-  els.btnNextAfterAnswer.textContent = isLast ? 'ดูสรุปคะแนน' : 'ข้อถัดไป';
+  updateNextLabels();
+}
+
+/** "ถัดไป" (bottom bar and fullscreen bar) becomes "ดูสรุปคะแนน" once the last question is answered. */
+function updateNextLabels() {
+  const toSummary = state.isAnswered && state.currentIndex === state.questions.length - 1;
+  els.skipQuestionText.textContent = toSummary ? 'ดูสรุปคะแนน' : 'ถัดไป';
+  els.btnFsNext.textContent = toSummary ? 'ดูสรุปคะแนน' : 'ถัดไป ›';
+}
+
+/** Answered: next question (or the summary after the last). Not answered yet: skip ahead, wrapping round. */
+function goNext() {
+  if (state.questions.length === 0) return;
+  if (state.isAnswered) {
+    goToNextQuestionOrSummary();
+    return;
+  }
+  state.currentIndex = (state.currentIndex + 1) % state.questions.length;
+  renderCurrentQuestion(true);
 }
 
 function setFeedbackCollapsed(collapsed) {
@@ -1870,11 +1889,8 @@ function bindEvents() {
     renderCurrentQuestion(true);
   });
 
-  els.btnSkipQuestion.addEventListener('click', () => {
-    if (state.questions.length === 0) return;
-    state.currentIndex = (state.currentIndex + 1) % state.questions.length;
-    renderCurrentQuestion(true);
-  });
+  els.btnSkipQuestion.addEventListener('click', goNext);
+  els.btnFsNext.addEventListener('click', goNext);
 
   // Edit the question on screen (answer buttons shown, correct answer, media, delete all live in the form)
   els.btnEditCurrent.addEventListener('click', () => {
@@ -1899,9 +1915,6 @@ function bindEvents() {
     renderCurrentQuestion(false);
   });
 
-  els.btnNextAfterAnswer.addEventListener('click', () => {
-    goToNextQuestionOrSummary();
-  });
 
   // Timer Toggle (Off -> 10s -> 15s -> 20s)
   const timerSteps = [0, 10, 15, 20];

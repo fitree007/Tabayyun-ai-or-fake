@@ -127,6 +127,7 @@
         <!-- Shown only in fullscreen (the page toolbar is hidden there) -->
         <div class="stage-fs-bar">
           <button type="button" id="btnFsPen" aria-pressed="false" title="ปากกาวง (P)">ปากกาวง <span id="fsPenStateText">OFF</span></button>
+          <button type="button" id="btnFsNext" title="ข้อถัดไป (Enter)">ถัดไป ›</button>
           <button type="button" id="btnExitFullscreen" title="ออกจากเต็มจอ (F หรือ Esc)">ออกจากเต็มจอ ✕</button>
         </div>
 
@@ -136,7 +137,6 @@
             <div class="feedback-status" id="feedbackStatusText">ถูกต้อง</div>
             <div class="feedback-actions">
               <button type="button" class="btn-collapse" id="btnCollapseFeedback" aria-expanded="true" title="หุบกล่องเฉลยเพื่อดูภาพเต็ม">หุบ</button>
-              <button type="button" class="btn-next" id="btnNextAfterAnswer">ข้อถัดไป</button>
             </div>
           </div>
           <p class="explanation-text" id="feedbackExplanationText"></p>
@@ -175,8 +175,8 @@
             <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
             <span>ก่อนหน้า</span>
           </button>
-          <button type="button" class="btn-step is-next" id="btnSkipQuestion" title="ไปข้อถัดไป">
-            <span>ถัดไป</span>
+          <button type="button" class="btn-step is-next" id="btnSkipQuestion" title="ไปข้อถัดไป (Enter หรือลูกศรขวาหลังตอบ)">
+            <span id="skipQuestionText">ถัดไป</span>
             <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
           </button>
         </div>
