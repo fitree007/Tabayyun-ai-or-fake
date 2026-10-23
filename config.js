@@ -8,8 +8,8 @@
  * ห้ามใส่ service_role key ที่นี่เด็ดขาด
  */
 window.APP_CONFIG = {
-  supabaseUrl: '',      // เช่น https://abcdxyz.supabase.co
-  supabaseAnonKey: '',  // Project Settings → API → anon public
+  supabaseUrl: 'https://oodnlfypkeqbcigdewdw.supabase.co',
+  supabaseAnonKey: 'sb_publishable_jdxIB_txi0JH3TkI_tw-YA_B_3BsBph', // Publishable key (เปิดเผยได้)
   bucket: 'media',      // ชื่อ Storage bucket (ตรงกับ schema.sql)
   maxFileMB: 50,        // Supabase แผนฟรีจำกัดไฟล์ละ 50 MB
 };

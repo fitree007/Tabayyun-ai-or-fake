@@ -374,7 +374,7 @@ function renderCurrentQuestion(playRevealSfx = true) {
   if (state.questions.length === 0) {
     els.progressBadge.textContent = '0 / 0';
     els.questionTitle.textContent = 'ยังไม่มีโจทย์คำถามในระบบ';
-    els.questionSubtitle.textContent = 'กดปุ่ม "➕ อัปโหลดภาพ/วิดีโอ & ตั้งค่าโจทย์" ด้านบนขวาเพื่อเพิ่มไฟล์ภาพหรือวิดีโอของคุณได้เลย!';
+    els.questionSubtitle.textContent = 'กดปุ่มด้านบนขวาเพื่อเพิ่มรูปหรือวิดีโอ (สตาฟต้องเข้าสู่ระบบก่อน)';
     els.mediaStage.innerHTML = '';
     els.answerButtonsContainer.innerHTML = '';
     return;
