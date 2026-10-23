@@ -219,6 +219,7 @@ async function initApp() {
   bindEvents();
   setupPen();
   syncSoundUI();
+  updateFormModeUI(); // builds the ready-made title chips before the manager is first opened
 
   window.onStoreBusy = (on, text) => {
     els.busyToast.hidden = !on;
