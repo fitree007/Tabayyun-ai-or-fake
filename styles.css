@@ -437,6 +437,35 @@ body.all-muted .ico-sound-off { display: block; }
   color: var(--color-primary);
 }
 
+/* Prev / next question: bigger and coloured — next is the main action */
+.btn-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.55rem 1.15rem;
+  border-radius: 12px;
+  border: 1.5px solid var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: 0.98rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+.btn-step .ico { width: 20px; height: 20px; stroke-width: 2.4; }
+.btn-step:hover { transform: translateY(-1px); box-shadow: var(--shadow-card); }
+.btn-step:active { transform: translateY(0) scale(0.97); }
+.btn-step:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 2px; }
+.btn-step.is-next {
+  background: var(--color-fill);
+  border-color: var(--color-fill);
+  color: #ffffff;
+  padding-left: 1.4rem;
+  box-shadow: 0 6px 16px -6px rgba(37, 99, 235, 0.6);
+}
+.btn-step.is-next:hover { background: var(--color-fill-hover); border-color: var(--color-fill-hover); }
+.btn-step:not(.is-next):hover { background: var(--color-primary); color: #ffffff; }
+
 .btn-pill-danger:hover { border-color: var(--color-wrong); color: var(--color-wrong); }
 
 .live-button-filter {
