@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- บิดเบือน: ชายมุสลิมสูงอายุ ขมวดคิ้ว หรี่ตาสงสัย เหงื่อตก -->
+  <circle cx="60" cy="60" r="60" fill="#fdebd3"/>
+  <defs><clipPath id="round"><circle cx="60" cy="60" r="60"/></clipPath></defs>
+  <g clip-path="url(#round)">
+  <path d="M14 120c3-21 20-31 46-31s43 10 46 31z" fill="#ffffff"/>
+  <path d="M50 89l10 12 10-12" fill="none" stroke="#d5dde8" stroke-width="2" stroke-linejoin="round"/>
+  <g transform="rotate(-6 60 70)">
+    <ellipse cx="34" cy="62" rx="5.5" ry="8" fill="#d39a72"/>
+    <ellipse cx="86" cy="62" rx="5.5" ry="8" fill="#d39a72"/>
+    <ellipse cx="60" cy="60" rx="26" ry="29" fill="#e2a982"/>
+    <path d="M34 60c0 25 11 40 26 40s26-15 26-40c-3 7-8 11-13 11-4-3-8-4-13-4s-9 1-13 4c-5 0-10-4-13-11z" fill="#f5f5f2"/>
+    <path d="M33 46c1-16 12-25 27-25s26 9 27 25c-8-2.5-17-3.8-27-3.8s-19 1.3-27 3.8z" fill="#ffffff" stroke="#cfd8e3" stroke-width="1.5"/>
+    <path d="M36 42.5c7-2 15-3 24-3s17 1 24 3" fill="none" stroke="#9fb4cb" stroke-width="1.6" stroke-dasharray="2.5 2.5"/>
+    <path d="M60 58c-2 5-3 8-1 9.5 1.5 1 3 .5 4-.5" fill="none" stroke="#b97c58" stroke-width="2" stroke-linecap="round"/>
+    <!-- คิ้วขมวด -->
+    <path d="M41 50l13 3.6M79 50l-13 3.6" fill="none" stroke="#d9d9d3" stroke-width="3.4" stroke-linecap="round"/>
+    <path d="M58 52.5c1.2-1 2.8-1 4 0" fill="none" stroke="#b97c58" stroke-width="1.4" stroke-linecap="round"/>
+    <!-- ตาหรี่ข้างหนึ่ง จ้องอีกข้าง -->
+    <path d="M44 58.5c3-1.6 7-1.6 10 0" fill="none" stroke="#3b2a20" stroke-width="2.8" stroke-linecap="round"/>
+    <path d="M66 58.5c3-3 7-3 10 0" fill="none" stroke="#3b2a20" stroke-width="2.4" stroke-linecap="round"/>
+    <circle cx="71" cy="58.6" r="2" fill="#3b2a20"/>
+    <path d="M47 71.5c4-4 9-4 13-1 4-3 9-3 13 1-4 1.8-8.5 2-13 .5-4.5 1.5-9 1.3-13-.5z" fill="#ffffff" stroke="#dcdcd6" stroke-width=".8"/>
+    <!-- ปากเบ้ ไม่แน่ใจ -->
+    <path d="M51 79c2-2.4 4-2.4 6 0s4 2.4 6 0 4-2.4 6 0" fill="none" stroke="#8b3a2b" stroke-width="2.6" stroke-linecap="round"/>
+  </g>
+  <!-- เหงื่อตก -->
+  <path d="M88 40c-2.6 3.8-3.6 5.8-3.6 7.2a3.6 3.6 0 0 0 7.2 0c0-1.4-1-3.4-3.6-7.2z" fill="#7dd3fc"/>
+  </g>
+  <!-- ป้ายกรรไกร (ตัดต่อ) -->
+  <circle cx="97" cy="97" r="15" fill="#b45309" stroke="#ffffff" stroke-width="3"/>
+  <circle cx="92.3" cy="101.8" r="2.9" fill="none" stroke="#ffffff" stroke-width="2"/>
+  <circle cx="101.7" cy="101.8" r="2.9" fill="none" stroke="#ffffff" stroke-width="2"/>
+  <path d="M94.4 99.6l9.4-10.6M99.6 99.6l-9.4-10.6" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+</svg>

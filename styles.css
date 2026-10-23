@@ -475,37 +475,65 @@ body.all-muted .ico-sound-off { display: block; }
 }
 
 .btn-answer {
+  /* per-answer colour: --c (solid), --c-soft (tint), --c-border, --c-text */
+  --c: var(--color-fill);
+  --c-soft: var(--bg-surface);
+  --c-border: var(--border-color);
+  --c-text: var(--text-main);
   flex: 1 1 0;
   min-height: 64px;
-  max-height: 220px;
-  padding: 0.8rem 0.6rem;
-  border-radius: 16px;
-  border: 1.5px solid var(--border-color);
-  background: var(--bg-surface);
-  color: var(--text-main);
+  max-height: 240px;
+  padding: 0.7rem 0.6rem;
+  border-radius: 18px;
+  border: 2px solid var(--c-border);
+  background: var(--c-soft);
+  color: var(--c-text);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.15rem;
+  gap: 0.2rem;
   cursor: pointer;
   position: relative;
   box-shadow: var(--shadow-pill);
-  transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.2s ease;
+}
+.btn-answer[data-choice="ai"],
+.btn-answer[data-choice="left"],
+.btn-answer[data-choice="right"] { --c: #4f46e5; --c-soft: #eef0ff; --c-border: #c7cbfa; --c-text: #4338ca; }
+.btn-answer[data-choice="real"] { --c: #0d7f63; --c-soft: #e7f7f1; --c-border: #a9e2cf; --c-text: #0b6b54; }
+.btn-answer[data-choice="manipulated"] { --c: #b45309; --c-soft: #fff3e3; --c-border: #f6cf9c; --c-text: #9a4a0b; }
+[data-theme="dark"] .btn-answer[data-choice="ai"],
+[data-theme="dark"] .btn-answer[data-choice="left"],
+[data-theme="dark"] .btn-answer[data-choice="right"] { --c-soft: rgba(99, 102, 241, 0.16); --c-border: rgba(129, 140, 248, 0.45); --c-text: #a5b4fc; }
+[data-theme="dark"] .btn-answer[data-choice="real"] { --c-soft: rgba(16, 185, 129, 0.14); --c-border: rgba(52, 211, 153, 0.4); --c-text: #6ee7b7; }
+[data-theme="dark"] .btn-answer[data-choice="manipulated"] { --c-soft: rgba(245, 158, 11, 0.14); --c-border: rgba(251, 191, 36, 0.4); --c-text: #fcd34d; }
+
+.btn-answer .answer-avatar {
+  width: clamp(48px, 13vh, 116px);
+  aspect-ratio: 1;
+  min-height: 0;
+  flex-shrink: 1;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 4px 8px rgba(15, 31, 61, 0.14));
+  transition: transform 0.2s ease;
 }
 .btn-answer .answer-label { font-size: clamp(1.1rem, 1.7vw, 1.6rem); font-weight: 700; text-align: center; line-height: 1.25; }
-.btn-answer .answer-sub { font-size: 0.78rem; color: var(--text-muted); transition: color 0.15s ease; }
+.btn-answer .answer-sub { font-size: 0.78rem; color: var(--text-secondary); text-align: center; transition: color 0.15s ease; }
 
 .btn-answer:hover:not(:disabled) {
   transform: translateY(-2px);
-  border-color: var(--color-primary);
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
+  border-color: var(--c);
+  background: var(--c);
+  color: #fff;
   box-shadow: var(--shadow-card);
 }
-.btn-answer:hover:not(:disabled) .answer-sub { color: var(--color-primary); }
+.btn-answer:hover:not(:disabled) .answer-sub { color: rgba(255, 255, 255, 0.9); }
+.btn-answer:hover:not(:disabled) .answer-avatar { transform: scale(1.06) rotate(-3deg); }
 .btn-answer:active:not(:disabled) { transform: translateY(0) scale(0.98); }
-.btn-answer:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 2px; }
+.btn-answer:focus-visible { outline: 3px solid var(--c); outline-offset: 3px; }
 
 .btn-answer .key-hint {
   position: absolute;
@@ -519,19 +547,28 @@ body.all-muted .ico-sound-off { display: block; }
   color: var(--text-muted);
 }
 
-.btn-answer.is-correct-answer {
-  background: var(--color-correct) !important;
-  border-color: var(--color-correct) !important;
-  color: #fff !important;
+/* After answering: buttons keep their own colour; a green/red ring + tag shows the result, the rest fade */
+.btn-answer:disabled { cursor: default; }
+.btn-answer:disabled:not(.is-correct-answer):not(.is-wrong-picked) { opacity: 0.4; filter: grayscale(0.5); }
+.btn-answer.is-correct-answer,
+.btn-answer.is-wrong-picked { background: var(--c); border-color: var(--c); color: #fff; }
+.btn-answer.is-correct-answer { box-shadow: 0 0 0 3px var(--bg-page), 0 0 0 7px var(--color-correct); }
+.btn-answer.is-wrong-picked { box-shadow: 0 0 0 3px var(--bg-page), 0 0 0 7px var(--color-wrong); }
+.btn-answer.is-correct-answer .answer-sub,
+.btn-answer.is-wrong-picked .answer-sub { color: rgba(255, 255, 255, 0.9); }
+.btn-answer.is-correct-answer::after,
+.btn-answer.is-wrong-picked::after {
+  position: absolute;
+  top: 7px;
+  left: 8px;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
 }
-.btn-answer.is-correct-answer .answer-sub { color: rgba(255, 255, 255, 0.85) !important; }
-.btn-answer.is-wrong-picked {
-  background: var(--color-wrong) !important;
-  border-color: var(--color-wrong) !important;
-  color: #fff !important;
-}
-.btn-answer.is-wrong-picked .answer-sub { color: rgba(255, 255, 255, 0.85) !important; }
-.btn-answer:disabled { cursor: default; opacity: 0.9; }
+.btn-answer.is-correct-answer::after { content: "✓ เฉลย"; background: #15803d; }
+.btn-answer.is-wrong-picked::after { content: "✕ ที่เลือก"; background: #b91c1c; }
 
 /* ==========================================================================
    Feedback banner
@@ -991,7 +1028,10 @@ dialog.dialog-wide { width: min(96vw, 1100px); }
   .media-stage.mode-compare .media-card { aspect-ratio: 16 / 9; height: auto; }
   .choice-col { justify-content: flex-start; }
   .answer-choices-container { flex-direction: row; flex-wrap: wrap; height: auto; }
-  .btn-answer { flex: 1 1 140px; max-height: none; }
+  .answer-choices-container { flex-wrap: nowrap; gap: 0.5rem; }
+  .btn-answer { flex: 1 1 0; min-width: 0; max-height: none; padding: 0.6rem 0.3rem; }
+  .btn-answer .answer-avatar { width: 56px; }
+  .btn-answer .answer-sub { font-size: 0.7rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {

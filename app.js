@@ -71,11 +71,11 @@ function setupDialogEnhancements(dialog) {
    2. Button Metadata & Game State
    ========================================================================== */
 const CHOICE_META = {
-  ai: { id: 'ai', label: 'AI', subLabel: 'สร้างด้วย AI', icon: '' },
-  real: { id: 'real', label: 'จริง', subLabel: 'ภาพ/วิดีโอจริง', icon: '' },
-  manipulated: { id: 'manipulated', label: 'บิดเบือน', subLabel: 'ตัดต่อ / ดัดแปลง', icon: '' },
-  left: { id: 'left', label: 'ฝั่งซ้าย คือ AI', subLabel: 'เลือกการ์ดซ้าย', icon: '' },
-  right: { id: 'right', label: 'ฝั่งขวา คือ AI', subLabel: 'เลือกการ์ดขวา', icon: '' },
+  ai: { id: 'ai', label: 'AI', subLabel: 'สร้างด้วย AI', icon: '', avatar: 'assets/avatar-ai.svg' },
+  real: { id: 'real', label: 'จริง', subLabel: 'ภาพ/วิดีโอจริง', icon: '', avatar: 'assets/avatar-real.svg' },
+  manipulated: { id: 'manipulated', label: 'บิดเบือน', subLabel: 'ตัดต่อ / ดัดแปลง', icon: '', avatar: 'assets/avatar-manipulated.svg' },
+  left: { id: 'left', label: 'ฝั่งซ้าย คือ AI', subLabel: 'เลือกการ์ดซ้าย', icon: '', avatar: 'assets/avatar-ai.svg' },
+  right: { id: 'right', label: 'ฝั่งขวา คือ AI', subLabel: 'เลือกการ์ดขวา', icon: '', avatar: 'assets/avatar-ai.svg' },
 };
 
 const SETTINGS_KEY = 'airt.settings.v1';
@@ -617,6 +617,7 @@ function renderAnswerButtons(q) {
 
     btn.innerHTML = `
       <span class="key-hint">${index + 1}</span>
+      <img class="answer-avatar" src="${meta.avatar}" alt="" draggable="false" />
       <span class="answer-label">${meta.label}</span>
       <span class="answer-sub">${meta.subLabel}</span>
     `;
