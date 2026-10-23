@@ -400,7 +400,6 @@ function renderCurrentQuestion(playRevealSfx = true) {
 
   els.questionTitle.textContent = q.title || defaultTitle;
   els.questionSubtitle.textContent =
-    q.subtitle ||
     (q.layoutMode === 'compare'
       ? 'มี 1 ฝั่งที่สร้างด้วย AI และอีก 1 ฝั่งเป็นของจริง คลิกที่ภาพหรือปุ่มด้านขวาเพื่อตอบ'
       : 'สังเกตรายละเอียดให้ดี แล้วกดปุ่มคำตอบด้านขวา');
