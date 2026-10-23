@@ -45,6 +45,14 @@ create policy "questions staff write"
   using (public.is_staff())
   with check (public.is_staff());
 
+-- 3.1) สิทธิ์เข้าถึงผ่าน Data API (จำเป็นเมื่อปิด "Automatically expose new tables")
+--      ผู้เล่นทั่วไป (anon) อ่านโจทย์ได้อย่างเดียว, สตาฟที่ล็อกอิน (authenticated) เขียนได้ภายใต้กฎ RLS ด้านบน
+--      ตาราง staff ไม่เปิดสิทธิ์ให้เบราว์เซอร์เลย
+grant usage on schema public to anon, authenticated;
+grant select on public.questions to anon, authenticated;
+grant insert, update, delete on public.questions to authenticated;
+grant execute on function public.is_staff() to authenticated;
+
 -- 4) ที่เก็บไฟล์รูป/วิดีโอ (bucket สาธารณะ จำกัดไฟล์ละ 50 MB)
 insert into storage.buckets (id, name, public, file_size_limit)
 values ('media', 'media', true, 52428800)
