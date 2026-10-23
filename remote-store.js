@@ -193,6 +193,22 @@
     },
   };
 
+  /** Space used on Supabase (all files in the media bucket, incl. the learn tab, plus the database). */
+  window.storageUsage = async () => {
+    const { data, error } = await client.rpc('storage_usage');
+    if (error) {
+      const missing = /storage_usage|PGRST202|does not exist|Could not find/i.test(`${error.code} ${error.message}`);
+      throw new Error(missing ? 'NEEDS_SCHEMA' : error.message);
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    return {
+      mode: 'remote',
+      mediaBytes: Number(row?.media_bytes || 0),
+      mediaFiles: Number(row?.media_files || 0),
+      databaseBytes: Number(row?.database_bytes || 0),
+    };
+  };
+
   window.questionStore = new RemoteStore('questions');
   window.learnStore = new RemoteStore('learn_items', 'learn/');
   window.APP_MODE = 'remote';

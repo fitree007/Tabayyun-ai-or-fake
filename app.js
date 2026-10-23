@@ -128,6 +128,7 @@ const els = {
   btnOpenManager: document.getElementById('btnOpenManager'),
   btnEditCurrent: document.getElementById('btnEditCurrent'),
   drawLayer: document.getElementById('drawLayer'),
+  answerBurst: document.getElementById('answerBurst'),
   btnPenToggle: document.getElementById('btnPenToggle'),
   penStateText: document.getElementById('penStateText'),
   stageWrap: document.querySelector('.stage-wrap'),
@@ -191,6 +192,7 @@ const els = {
   btnRestoreSamples: document.getElementById('btnRestoreSamples'),
   btnClearAllQuestions: document.getElementById('btnClearAllQuestions'),
   questionsListContainer: document.getElementById('questionsListContainer'),
+  usagePanel: document.getElementById('usagePanel'),
 
   summaryDialog: document.getElementById('summaryDialog'),
   btnCloseSummary: document.getElementById('btnCloseSummary'),
@@ -285,7 +287,67 @@ function openManager() {
   }
   renderQuestionsManagerList();
   els.managerDialog.showModal();
+  refreshUsage();
   return true;
+}
+
+/* ==========================================================================
+   4a. Storage used vs. plan limits (shown in the question manager)
+   ========================================================================== */
+const MB = 1024 * 1024;
+
+function formatBytes(bytes) {
+  if (bytes >= 1024 * MB) return `${(bytes / (1024 * MB)).toFixed(2)} GB`;
+  if (bytes >= MB) return `${(bytes / MB).toFixed(1)} MB`;
+  return `${Math.max(0, Math.round(bytes / 1024))} KB`;
+}
+
+function usageRow(label, used, limit, note) {
+  const pct = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
+  const pctText = used > 0 && pct < 1 ? '<1' : Math.round(pct);
+  const level = pct >= 90 ? 'is-danger' : pct >= 70 ? 'is-warn' : '';
+  return `
+    <div class="usage-row ${level}">
+      <div class="usage-row-top">
+        <span>${escapeHtml(label)}</span>
+        <strong>${formatBytes(used)} / ${formatBytes(limit)} (${pctText}%)</strong>
+      </div>
+      <div class="usage-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}">
+        <div class="usage-fill" style="width:${pct.toFixed(1)}%"></div>
+      </div>
+      ${note ? `<small>${escapeHtml(note)}</small>` : ''}
+    </div>`;
+}
+
+let usageRequest = 0;
+async function refreshUsage() {
+  const cfg = window.APP_CONFIG || {};
+  const storageLimit = (cfg.storageLimitMB || 1024) * MB;
+  const dbLimit = (cfg.databaseLimitMB || 500) * MB;
+  const limitsText = `ลิมิตแผนฟรีของ Supabase: ไฟล์รวม ${formatBytes(storageLimit)} • ฐานข้อมูล ${formatBytes(dbLimit)} • ไฟล์ละไม่เกิน ${cfg.maxFileMB || 50} MB • ดาวน์โหลดรวม ${cfg.egressLimitGB || 5} GB/เดือน`;
+  const request = ++usageRequest;
+  els.usagePanel.innerHTML = '<small class="usage-note">กำลังคำนวณพื้นที่ที่ใช้…</small>';
+  let html;
+  try {
+    if (isRemote()) {
+      const u = await window.storageUsage();
+      html =
+        usageRow('พื้นที่เก็บไฟล์รูป/วิดีโอ (รวมไฟล์ในสาระน่ารู้)', u.mediaBytes, storageLimit, `${u.mediaFiles} ไฟล์`) +
+        usageRow('ฐานข้อมูล', u.databaseBytes, dbLimit, '') +
+        `<small class="usage-note">${limitsText} — ปริมาณดาวน์โหลดเพิ่มตามจำนวนคนที่เปิดดูวิดีโอ ดูยอดจริงได้ที่ Supabase → Usage</small>`;
+    } else {
+      const est = navigator.storage && navigator.storage.estimate ? await navigator.storage.estimate() : null;
+      html = est
+        ? usageRow('พื้นที่ที่ใช้ในเบราว์เซอร์นี้ (โหมดในเครื่อง)', est.usage || 0, est.quota || 0, 'โหมดในเครื่องเก็บโจทย์ไว้ในเบราว์เซอร์เครื่องนี้เท่านั้น ลิมิตขึ้นกับพื้นที่ว่างของเครื่อง')
+        : '<small class="usage-note">เบราว์เซอร์นี้ไม่บอกพื้นที่ที่ใช้</small>';
+    }
+  } catch (err) {
+    html =
+      err.message === 'NEEDS_SCHEMA'
+        ? `<small class="usage-note">ยังดูพื้นที่ที่ใช้ไม่ได้ — ให้รันไฟล์ supabase/schema.sql ใหม่ใน Supabase SQL Editor<br />${limitsText}</small>`
+        : `<small class="usage-note">ดูพื้นที่ที่ใช้ไม่ได้: ${escapeHtml(err.message)}<br />${limitsText}</small>`;
+  }
+  if (request === usageRequest) els.usagePanel.innerHTML = html; // ignore a slower, older answer
 }
 
 /* ==========================================================================
@@ -389,6 +451,7 @@ function resolveMediaSource(blobOrData, fallbackUrl, bucket = state.activeObject
 function renderCurrentQuestion(playRevealSfx = true) {
   stopTimer();
   clearPen();
+  hideAnswerBurst();
   cleanupObjectUrlsAndObservers();
   state.isAnswered = false;
   els.feedbackBanner.hidden = true;
@@ -673,6 +736,35 @@ function submitAnswer(selectedChoice) {
 
   updateScoreHud();
   revealAnswer(q, selectedChoice);
+  showAnswerBurst(isCorrect, selectedChoice === 'timeout');
+}
+
+/** Big tick / cross over the media for a moment — only on a fresh answer, not when revisiting one. */
+const BURST_MS = 1400;
+let burstTimer = 0;
+function showAnswerBurst(isCorrect, timedOut) {
+  const burst = els.answerBurst;
+  const mark = isCorrect
+    ? '<path class="burst-mark" pathLength="100" d="M35 62l17 17 34-37"/>'
+    : '<path class="burst-mark" pathLength="100" d="M41 41l38 38M79 41l-38 38"/>';
+  const label = isCorrect ? 'ถูกต้อง!' : timedOut ? 'หมดเวลา!' : 'ผิด!';
+  burst.innerHTML = `
+    <div class="burst-badge">
+      <svg viewBox="0 0 120 120"><circle class="burst-circle" cx="60" cy="60" r="54"/>${mark}</svg>
+    </div>
+    <div class="burst-label">${label}</div>`;
+  burst.className = `answer-burst ${isCorrect ? 'is-correct' : 'is-wrong'}`;
+  burst.hidden = false;
+  void burst.offsetWidth; // restart the animation if answers come quickly
+  burst.classList.add('is-showing');
+  clearTimeout(burstTimer);
+  burstTimer = setTimeout(hideAnswerBurst, BURST_MS);
+}
+
+function hideAnswerBurst() {
+  clearTimeout(burstTimer);
+  els.answerBurst.hidden = true;
+  els.answerBurst.classList.remove('is-showing');
 }
 
 /** Lock the question and show its result — after answering, and again when revisiting an answered question. */
@@ -750,38 +842,83 @@ function setFeedbackCollapsed(collapsed) {
    ========================================================================== */
 const PEN_HOLD_MS = 2200;
 const PEN_FADE_MS = 1300;
+const PEN_MIN_MOVE = 5; // px a press must travel before it becomes a stroke — a plain click stays a click
+const VIDEO_CONTROLS_ZONE = 56; // px at the bottom of a video left free for its native controls
 const pen = { on: false, strokes: [], current: null, raf: 0, ctx: null, w: 0, h: 0 };
 
+/* The canvas only displays strokes (pointer-events: none). Input is read on the stage, so with the pen on
+   (the default) clicks still reach the media: video play/pause and controls, picking a card in compare mode. */
 function setupPen() {
   const canvas = els.drawLayer;
+  const wrap = els.stageWrap;
   pen.ctx = canvas.getContext('2d');
-  new ResizeObserver(sizePenCanvas).observe(canvas.parentElement);
+  new ResizeObserver(sizePenCanvas).observe(wrap);
   sizePenCanvas();
 
   const point = (e) => {
     const r = canvas.getBoundingClientRect();
     return [e.clientX - r.left, e.clientY - r.top];
   };
-  canvas.addEventListener('pointerdown', (e) => {
-    if (!pen.on) return;
-    e.preventDefault();
-    canvas.setPointerCapture(e.pointerId);
-    pen.current = { points: [point(e)], endedAt: 0 };
-    pen.strokes.push(pen.current);
-    startPenLoop();
+  const startsOnControl = (e) => {
+    if (e.target.closest('.stage-fs-bar, .feedback-banner, .unmute-hint, button, a, input')) return true;
+    if (e.target.tagName === 'VIDEO') {
+      const r = e.target.getBoundingClientRect();
+      if (e.clientY > r.bottom - VIDEO_CONTROLS_ZONE) return true;
+    }
+    return false;
+  };
+
+  let press = null; // button is down, not yet far enough to count as a stroke
+  let suppressClick = false;
+
+  wrap.addEventListener('pointerdown', (e) => {
+    if (!pen.on || e.button !== 0 || startsOnControl(e)) return;
+    press = { id: e.pointerId, x: e.clientX, y: e.clientY, start: point(e) };
   });
-  canvas.addEventListener('pointermove', (e) => {
-    if (!pen.current) return;
+  wrap.addEventListener('pointermove', (e) => {
+    if (!press || e.pointerId !== press.id) return;
+    if (!pen.current) {
+      if (Math.hypot(e.clientX - press.x, e.clientY - press.y) < PEN_MIN_MOVE) return;
+      pen.current = { points: [press.start], endedAt: 0 };
+      pen.strokes.push(pen.current);
+      try {
+        wrap.setPointerCapture(e.pointerId);
+      } catch (_) {
+        /* synthetic events can't be captured */
+      }
+      startPenLoop();
+    }
+    e.preventDefault();
     const coalesced = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
     (coalesced.length ? coalesced : [e]).forEach((ev) => pen.current.points.push(point(ev)));
   });
-  const end = () => {
-    if (!pen.current) return;
-    pen.current.endedAt = performance.now();
-    pen.current = null;
+  const end = (e) => {
+    if (!press || e.pointerId !== press.id) return;
+    if (pen.current) {
+      pen.current.endedAt = performance.now();
+      pen.current = null;
+      suppressClick = true; // the click that follows a stroke must not play/pause or pick a card
+      setTimeout(() => (suppressClick = false), 400);
+    }
+    press = null;
   };
-  canvas.addEventListener('pointerup', end);
-  canvas.addEventListener('pointercancel', end);
+  wrap.addEventListener('pointerup', end);
+  wrap.addEventListener('pointercancel', end);
+  wrap.addEventListener(
+    'click',
+    (e) => {
+      if (!suppressClick) return;
+      e.preventDefault();
+      e.stopPropagation();
+      suppressClick = false;
+    },
+    true
+  );
+  // dragging across an image would otherwise start the browser's image drag or a text selection
+  wrap.addEventListener('dragstart', (e) => pen.on && e.preventDefault());
+  wrap.addEventListener('selectstart', (e) => pen.on && e.preventDefault());
+
+  setPen(true); // the pen is on by default
 }
 
 function sizePenCanvas() {
@@ -801,7 +938,7 @@ function sizePenCanvas() {
 
 function setPen(on) {
   pen.on = on;
-  els.drawLayer.classList.toggle('is-active', on);
+  els.stageWrap.classList.toggle('pen-on', on);
   els.btnPenToggle.setAttribute('aria-pressed', String(on));
   els.btnFsPen.setAttribute('aria-pressed', String(on));
   els.penStateText.textContent = els.fsPenStateText.textContent = on ? 'ON' : 'OFF';
@@ -1190,6 +1327,8 @@ async function renderQuestionsManagerList() {
 
     els.questionsListContainer.appendChild(row);
   });
+
+  if (els.managerDialog.open) refreshUsage(); // after an add / edit / delete
 }
 
 /**

@@ -121,6 +121,9 @@
         <!-- Host pen: circle spots on the media; strokes fade out by themselves -->
         <canvas class="draw-layer" id="drawLayer" aria-hidden="true"></canvas>
 
+        <!-- Big ✓ / ✕ that pops up for a moment after answering (the banner below carries the text for screen readers) -->
+        <div class="answer-burst" id="answerBurst" aria-hidden="true" hidden></div>
+
         <!-- Shown only in fullscreen (the page toolbar is hidden there) -->
         <div class="stage-fs-bar">
           <button type="button" id="btnFsPen" aria-pressed="false" title="ปากกาวง (P)">ปากกาวง <span id="fsPenStateText">OFF</span></button>
@@ -152,7 +155,7 @@
             <span id="fitStateText">พอดีภาพ</span>
           </button>
 
-          <button type="button" class="btn-pill-toggle" id="btnPenToggle" aria-pressed="false" title="ปากกาวงจุดบนภาพ (ปุ่มลัด P) — เส้นจะค่อย ๆ จางหายเอง">
+          <button type="button" class="btn-pill-toggle" id="btnPenToggle" aria-pressed="true" title="ปากกาวงจุดบนภาพ (ปุ่มลัด P) — ลากเพื่อวง เส้นจะค่อย ๆ จางหายเอง คลิกเฉย ๆ ยังใช้งานภาพ/วิดีโอได้ตามปกติ">
             <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 4.2A8 8 0 1 0 19.8 11"/><path d="M21 3l-6.5 6.5-2 .5.5-2L19.5 1.5z"/></svg>
             <span>ปากกาวง <span id="penStateText">OFF</span></span>
           </button>
@@ -377,6 +380,8 @@
             <button type="button" class="btn-nav btn-danger" id="btnClearAllQuestions">ลบทั้งหมด</button>
           </div>
         </div>
+
+        <div class="usage-panel" id="usagePanel" aria-live="polite"></div>
 
         <div class="questions-list" id="questionsListContainer">
         </div>

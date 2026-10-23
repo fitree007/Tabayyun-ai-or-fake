@@ -12,4 +12,8 @@ window.APP_CONFIG = {
   supabaseAnonKey: 'sb_publishable_jdxIB_txi0JH3TkI_tw-YA_B_3BsBph', // Publishable key (เปิดเผยได้)
   bucket: 'media',      // ชื่อ Storage bucket (ตรงกับ schema.sql)
   maxFileMB: 50,        // Supabase แผนฟรีจำกัดไฟล์ละ 50 MB
+  // ลิมิตของแผนฟรีที่ใช้แสดงในหน้าจัดการโจทย์ (ถ้าอัปเกรดแผน แก้ตัวเลขตรงนี้)
+  storageLimitMB: 1024, // พื้นที่เก็บไฟล์ 1 GB
+  databaseLimitMB: 500, // ฐานข้อมูล 500 MB
+  egressLimitGB: 5,     // ปริมาณดาวน์โหลดต่อเดือน 5 GB
 };

@@ -107,5 +107,21 @@ create policy "learn staff write"
 grant select on public.learn_items to anon, authenticated;
 grant insert, update, delete on public.learn_items to authenticated;
 
+-- 4.2) พื้นที่ที่ใช้ไป (แสดงในหน้าจัดการโจทย์): ขนาดไฟล์ทั้งหมดใน bucket media + ขนาดฐานข้อมูล
+create or replace function public.storage_usage()
+returns table (media_bytes bigint, media_files bigint, database_bytes bigint)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    coalesce((select sum((o.metadata ->> 'size')::bigint) from storage.objects o where o.bucket_id = 'media'), 0),
+    (select count(*) from storage.objects o where o.bucket_id = 'media'),
+    pg_database_size(current_database());
+$$;
+revoke all on function public.storage_usage() from public, anon;
+grant execute on function public.storage_usage() to authenticated;
+
 -- 5) เพิ่มอีเมลสตาฟ (แก้เป็นอีเมลจริงของคุณและสตาฟ แล้วรันบรรทัดนี้)
 -- insert into public.staff (email) values ('you@example.com'), ('staff1@example.com');
