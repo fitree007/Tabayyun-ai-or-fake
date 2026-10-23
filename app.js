@@ -413,13 +413,19 @@ function syncSoundUI() {
 
   document.querySelectorAll('video.media-element').forEach(applyVideoAudio);
   document.querySelectorAll('iframe[data-provider="youtube"]').forEach(applyEmbedAudio);
+  fbPlayers.forEach(applyFacebookAudio);
 }
 
-/* YouTube players accept volume / mute commands (enablejsapi=1), so they follow the sound panel too.
-   Facebook's player has no such interface — its own buttons control its sound. */
+/* ==========================================================================
+   4c. Linked clips (YouTube / Facebook): play-pause and sound from our page
+   ========================================================================== */
+const YT_ORIGIN = 'https://www.youtube-nocookie.com';
+
+/* YouTube players take commands (enablejsapi=1) and report their state back, so a click on the
+   pen layer can play / pause them and they follow the sound panel. */
 function sendToYouTube(frame, func, args = []) {
   try {
-    frame.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args }), 'https://www.youtube-nocookie.com');
+    frame.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args }), YT_ORIGIN);
   } catch (_) {
     /* frame gone */
   }
@@ -435,8 +441,159 @@ function applyEmbedAudio(frame) {
 function watchEmbedAudio(frame) {
   frame.dataset.provider = 'youtube';
   frame.addEventListener('load', () => {
-    [400, 1500, 3500].forEach((ms) => setTimeout(() => frame.isConnected && applyEmbedAudio(frame), ms));
+    [400, 1500, 3500].forEach((ms) =>
+      setTimeout(() => {
+        if (!frame.isConnected) return;
+        // ask the player to report its state (playing / paused) to this page
+        try {
+          frame.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 'airt', channel: 'widget' }), YT_ORIGIN);
+        } catch (_) {
+          /* ignore */
+        }
+        applyEmbedAudio(frame);
+      }, ms)
+    );
   });
+}
+
+window.addEventListener('message', (e) => {
+  if (e.origin !== YT_ORIGIN || typeof e.data !== 'string') return;
+  let data;
+  try {
+    data = JSON.parse(e.data);
+  } catch (_) {
+    return;
+  }
+  const frame = [...document.querySelectorAll('iframe[data-provider="youtube"]')].find((f) => f.contentWindow === e.source);
+  if (!frame) return;
+  const ps = data.info && typeof data.info === 'object' ? data.info.playerState : data.event === 'onStateChange' ? data.info : undefined;
+  if (typeof ps === 'number') frame._ytState = ps; // 1 playing, 2 paused, 3 buffering, 0 ended
+});
+
+/* Facebook: its SDK player (play / pause / volume). If the SDK can't load, the card falls back to
+   the plain embed — that one can't be controlled from here, so the pen is switched off for it. */
+const fbPlayers = new Set();
+let fbSdkPromise = null;
+const fbWaiting = new Map(); // element id -> resolve(player)
+
+function loadFacebookSdk() {
+  if (fbSdkPromise) return fbSdkPromise;
+  fbSdkPromise = new Promise((resolve, reject) => {
+    const cfg = window.APP_CONFIG || {};
+    const done = () => {
+      window.FB.Event.subscribe('xfbml.ready', (msg) => {
+        if (msg.type === 'video' && fbWaiting.has(msg.id)) fbWaiting.get(msg.id)(msg.instance);
+      });
+      resolve(window.FB);
+    };
+    window.fbAsyncInit = () => {
+      window.FB.init({ xfbml: false, version: cfg.facebookSdkVersion || 'v22.0', ...(cfg.facebookAppId ? { appId: cfg.facebookAppId } : {}) });
+      done();
+    };
+    if (!document.getElementById('fb-root')) {
+      const root = document.createElement('div');
+      root.id = 'fb-root';
+      document.body.prepend(root);
+    }
+    const s = document.createElement('script');
+    s.src = 'https://connect.facebook.net/en_US/sdk.js';
+    s.async = true;
+    s.crossOrigin = 'anonymous';
+    s.onerror = () => reject(new Error('facebook sdk blocked'));
+    document.head.appendChild(s);
+    setTimeout(() => reject(new Error('facebook sdk timeout')), 8000);
+  });
+  fbSdkPromise.catch(() => {}); // a failed load is handled per card
+  return fbSdkPromise;
+}
+
+function applyFacebookAudio(entry) {
+  try {
+    const muted = !state.videoSoundOn || state.videoVolume === 0;
+    entry.player.setVolume(state.videoVolume);
+    if (muted) entry.player.mute();
+    else entry.player.unmute();
+  } catch (_) {
+    /* player gone */
+  }
+}
+
+/** Build a Facebook card body: SDK player when possible, plain embed otherwise. */
+function mountFacebookPlayer(card, url) {
+  const links = window.mediaLinks;
+  const vertical = links.isVerticalFacebook(url);
+  const holder = document.createElement('div');
+  holder.className = `fb-holder${vertical ? ' is-vertical' : ''}`;
+  const id = `fbv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  card.appendChild(holder);
+
+  const fallback = () => {
+    if (!holder.isConnected) return;
+    const frame = document.createElement('iframe');
+    frame.className = `media-embed${vertical ? ' is-vertical' : ''}`;
+    frame.src = links.facebookEmbedUrl(url);
+    frame.title = 'Facebook';
+    frame.allow = 'autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share; fullscreen';
+    frame.allowFullscreen = true;
+    holder.replaceWith(frame);
+    card.dataset.embedControl = 'none';
+    if (card.isConnected) setPen(false, { auto: true }); // nothing on our side can press play for this one
+  };
+
+  loadFacebookSdk()
+    .then((FB) => {
+      if (!holder.isConnected) return;
+      const r = card.getBoundingClientRect();
+      const width = Math.max(240, Math.round(vertical ? (r.height || 540) * (9 / 16) : r.width || 560));
+      const el = document.createElement('div');
+      el.className = 'fb-video';
+      el.id = id;
+      el.dataset.href = url;
+      el.dataset.width = String(width);
+      el.dataset.showText = 'false';
+      el.dataset.allowfullscreen = 'true';
+      holder.appendChild(el);
+      const ready = new Promise((resolve, reject) => {
+        fbWaiting.set(id, resolve);
+        setTimeout(() => reject(new Error('facebook player timeout')), 9000);
+      });
+      FB.XFBML.parse(holder);
+      return ready;
+    })
+    .then((player) => {
+      fbWaiting.delete(id);
+      if (!player || !holder.isConnected) return;
+      const entry = { player, playing: false, card };
+      card._fb = entry;
+      fbPlayers.add(entry);
+      player.subscribe('startedPlaying', () => (entry.playing = true));
+      player.subscribe('paused', () => (entry.playing = false));
+      player.subscribe('finishedPlaying', () => (entry.playing = false));
+      applyFacebookAudio(entry);
+    })
+    .catch(() => {
+      fbWaiting.delete(id);
+      fallback();
+    });
+}
+
+/** A plain click on the pen layer over a linked clip plays / pauses it. */
+function toggleEmbedPlayback(card) {
+  const yt = card.querySelector('iframe[data-provider="youtube"]');
+  if (yt) {
+    const playing = yt._ytState !== undefined ? yt._ytState === 1 || yt._ytState === 3 : Boolean(yt._ytLocalPlaying);
+    sendToYouTube(yt, playing ? 'pauseVideo' : 'playVideo');
+    yt._ytLocalPlaying = !playing; // used until the player reports its real state
+    if (!playing) applyEmbedAudio(yt);
+    return;
+  }
+  if (card._fb) {
+    if (card._fb.playing) card._fb.player.pause();
+    else {
+      applyFacebookAudio(card._fb);
+      card._fb.player.play();
+    }
+  }
 }
 
 /** Apply the host's video-audio settings to a <video>. Compare mode stays muted. */
@@ -490,6 +647,7 @@ function renderCurrentQuestion(playRevealSfx = true) {
   stopTimer();
   clearPen();
   hideAnswerBurst();
+  fbPlayers.clear();
   cleanupObjectUrlsAndObservers();
   state.isAnswered = false;
   els.feedbackBanner.hidden = true;
@@ -527,11 +685,11 @@ function renderCurrentQuestion(playRevealSfx = true) {
     q.layoutMode === 'compare'
       ? 'มี 1 ฝั่งที่สร้างด้วย AI และอีก 1 ฝั่งเป็นของจริง คลิกที่ภาพหรือปุ่มด้านขวาเพื่อตอบ'
       : isEmbed
-      ? 'กดเล่นคลิปในกรอบ แล้วกดปุ่มคำตอบด้านขวา • อยากวงจุดบนคลิป กด P (ปากกา) และกด P อีกครั้งเพื่อกลับไปควบคุมคลิป'
+      ? 'คลิกที่คลิปเพื่อเล่น/หยุด แล้วกดปุ่มคำตอบด้านขวา'
       : 'สังเกตรายละเอียดให้ดี แล้วกดปุ่มคำตอบด้านขวา';
 
-  // A cross-origin player can't be clicked through the pen, so linked clips start with the pen off
-  setPen(isEmbed ? false : pen.preferred, { auto: true });
+  // back to the host's pen setting (a Facebook clip that can't be controlled switches it off for itself)
+  setPen(pen.preferred, { auto: true });
 
   els.mediaStage.className = q.layoutMode === 'compare' ? 'media-stage mode-compare' : 'media-stage mode-single';
 
@@ -603,19 +761,22 @@ function createMediaCardElement({ mediaType, src, badgeText, choiceKey, muteVide
 
   if (mediaType === 'youtube' || mediaType === 'facebook') {
     // Linked clip, played in the provider's own player (its own play / volume buttons)
-    const links = window.mediaLinks;
-    const frame = document.createElement('iframe');
-    frame.className = 'media-embed';
-    if (mediaType === 'facebook' && links.isVerticalFacebook(facebookUrl)) frame.classList.add('is-vertical');
-    frame.src = mediaType === 'youtube' ? links.youtubeEmbedUrl(youtubeId) : links.facebookEmbedUrl(facebookUrl);
-    frame.title = badgeText;
-    frame.allow = 'autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share; fullscreen';
-    frame.allowFullscreen = true;
-    frame.referrerPolicy = 'strict-origin-when-cross-origin';
-    if (mediaType === 'youtube') watchEmbedAudio(frame);
-    card.appendChild(frame);
-    // Clicks inside a cross-origin iframe never reach the page, so with the pen on this layer
-    // catches the drag for drawing (it is hidden while the pen is off, leaving the player usable)
+    if (mediaType === 'youtube') {
+      const frame = document.createElement('iframe');
+      frame.className = 'media-embed';
+      frame.src = window.mediaLinks.youtubeEmbedUrl(youtubeId);
+      frame.title = badgeText;
+      frame.allow = 'autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share; fullscreen';
+      frame.allowFullscreen = true;
+      frame.referrerPolicy = 'strict-origin-when-cross-origin';
+      watchEmbedAudio(frame);
+      card.appendChild(frame);
+    } else {
+      mountFacebookPlayer(card, facebookUrl);
+    }
+    // Clicks inside a cross-origin player never reach the page, so with the pen on this layer takes
+    // them: drag = draw, plain click = play / pause through the player's API. It stops above the
+    // player's own control bar, which stays directly clickable. Hidden while the pen is off.
     const catcher = document.createElement('div');
     catcher.className = 'embed-catcher';
     card.appendChild(catcher);
@@ -890,9 +1051,11 @@ function revealAnswer(q, selectedChoice) {
     els.feedbackStatusText.textContent = `ผิด คำตอบที่ถูกคือ "${correctMeta.label}"`;
   }
 
-  els.feedbackExplanationText.textContent =
+  window.mediaLinks.setTextWithLinks(
+    els.feedbackExplanationText,
     q.explanation ||
-    `ข้อนี้เฉลยคือ "${correctMeta.label}" (${correctMeta.subLabel || ''}) กดปุ่มถัดไปเพื่อเล่นข้อต่อไปได้เลย`;
+      `ข้อนี้เฉลยคือ "${correctMeta.label}" (${correctMeta.subLabel || ''}) กดปุ่มถัดไปเพื่อเล่นข้อต่อไปได้เลย`
+  );
 
   const isLast = state.currentIndex === state.questions.length - 1;
   els.btnNextAfterAnswer.textContent = isLast ? 'ดูสรุปคะแนน' : 'ข้อถัดไป';
@@ -982,6 +1145,11 @@ function setupPen() {
     },
     true
   );
+  // plain click (no stroke) on a linked clip: play / pause it
+  wrap.addEventListener('click', (e) => {
+    const catcher = e.target.closest && e.target.closest('.embed-catcher');
+    if (catcher) toggleEmbedPlayback(catcher.closest('.media-card'));
+  });
   // dragging across an image would otherwise start the browser's image drag or a text selection
   wrap.addEventListener('dragstart', (e) => pen.on && e.preventDefault());
   wrap.addEventListener('selectstart', (e) => pen.on && e.preventDefault());
@@ -1004,11 +1172,10 @@ function sizePenCanvas() {
   drawPen();
 }
 
-/** `auto`: switched by the app (linked clip shown), so the host's own on/off preference is kept. */
+/** `auto`: switched by the app (e.g. an uncontrollable clip), so the host's own on/off preference is kept. */
 function setPen(on, { auto = false } = {}) {
   pen.on = on;
-  // toggling on a linked clip is a temporary "draw now" — don't let it change the default for normal questions
-  if (!auto && !els.mediaStage.querySelector('.has-embed')) pen.preferred = on;
+  if (!auto && !els.mediaStage.querySelector('[data-embed-control="none"]')) pen.preferred = on;
   els.stageWrap.classList.toggle('pen-on', on);
   els.btnPenToggle.setAttribute('aria-pressed', String(on));
   els.btnFsPen.setAttribute('aria-pressed', String(on));
@@ -1891,42 +2058,61 @@ function bindEvents() {
     }
   });
 
-  // Keyboard Shortcuts for smooth hosting / playing
+  // Keyboard shortcuts for hosting. They match the physical key (e.code), not the typed character,
+  // so they also work while the keyboard is set to Thai (P types "ย" there).
   window.addEventListener('keydown', (e) => {
     if (
       els.managerDialog.open ||
       els.summaryDialog.open ||
       els.loginDialog.open ||
       document.body.dataset.view === 'learn' ||
-      ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)
+      ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) ||
+      e.ctrlKey ||
+      e.metaKey ||
+      e.altKey // leave browser shortcuts such as Ctrl+F / Ctrl+P alone
     ) {
       return;
     }
 
-    if (e.key.toLowerCase() === 'z') {
-      els.btnLoupeToggle.click();
-    } else if (e.key === '1' || e.key === '2' || e.key === '3') {
-      const idx = parseInt(e.key, 10) - 1;
+    const code = e.code;
+    const answerKey = { Digit1: 0, Digit2: 1, Digit3: 2, Numpad1: 0, Numpad2: 1, Numpad3: 2 }[code];
+
+    if (answerKey !== undefined) {
       const btns = els.answerButtonsContainer.querySelectorAll('.btn-answer:not(:disabled)');
-      if (btns[idx]) btns[idx].click();
-    } else if ((e.key === 'ArrowRight' || e.key === 'Enter') && state.isAnswered) {
+      if (btns[answerKey]) btns[answerKey].click();
+    } else if ((code === 'ArrowRight' || code === 'Enter' || code === 'NumpadEnter') && state.isAnswered) {
       e.preventDefault();
       goToNextQuestionOrSummary();
-    } else if (e.key.toLowerCase() === 'p') {
-      setPen(!pen.on);
-    } else if (e.key.toLowerCase() === 'f') {
+    } else if (code === 'Escape' && els.stageWrap.classList.contains('is-pseudo-fullscreen')) {
       toggleFullscreen();
-    } else if (e.key === 'Escape' && els.stageWrap.classList.contains('is-pseudo-fullscreen')) {
-      toggleFullscreen();
-    } else if (e.key === 'Escape' && pen.on) {
+    } else if (code === 'Escape' && pen.on) {
       setPen(false);
-    } else if (e.key.toLowerCase() === 'm') {
+    } else if (e.repeat) {
+      // holding a key down must not flip a toggle on and off
+    } else if (code === 'KeyP') {
+      setPen(!pen.on);
+    } else if (code === 'KeyF') {
+      toggleFullscreen();
+    } else if (code === 'KeyZ') {
+      els.btnLoupeToggle.click();
+    } else if (code === 'KeyM') {
       els.btnMuteAll.click();
-    } else if (e.key.toLowerCase() === 'd') {
+    } else if (code === 'KeyD') {
       window.sfx.playDrumroll();
-    } else if (e.key.toLowerCase() === 'h') {
+    } else if (code === 'KeyH') {
       window.sfx.playHeartbeatSuspense();
     }
+  });
+
+  // After the host clicks inside a YouTube / Facebook player, keyboard focus lives in that frame and the
+  // page never sees key presses. Hand focus back to the page so P, F, 1/2/3… keep working.
+  window.addEventListener('blur', () => {
+    setTimeout(() => {
+      const active = document.activeElement;
+      if (active && active.tagName === 'IFRAME' && els.mediaStage.contains(active)) {
+        els.stageWrap.focus({ preventScroll: true });
+      }
+    }, 0);
   });
 }
 

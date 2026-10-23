@@ -16,4 +16,7 @@ window.APP_CONFIG = {
   storageLimitMB: 1024, // พื้นที่เก็บไฟล์ 1 GB
   databaseLimitMB: 500, // ฐานข้อมูล 500 MB
   egressLimitGB: 5,     // ปริมาณดาวน์โหลดต่อเดือน 5 GB
+  // ตัวเล่นคลิป Facebook (ใช้ให้กดเล่น/หยุดและปรับเสียงจากหน้าเว็บได้) — ปกติไม่ต้องแก้
+  facebookSdkVersion: 'v22.0',
+  facebookAppId: '',    // ไม่บังคับ
 };

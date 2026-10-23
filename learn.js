@@ -268,7 +268,7 @@
 
     clearViewerMedia();
     el.viewerTitle.textContent = item.title;
-    el.viewerDesc.textContent = item.description || '';
+    window.mediaLinks.setTextWithLinks(el.viewerDesc, item.description || '');
     el.viewerPos.textContent = `${viewerIndex + 1} / ${items.length}`;
     el.btnPrev.disabled = el.btnNext.disabled = items.length < 2;
     el.viewerMedia.classList.toggle('is-vertical', item.kind === 'facebook' && isVerticalFacebook(item.facebookUrl));

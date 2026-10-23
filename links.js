@@ -67,6 +67,31 @@
 
   const youtubeThumb = (id, size = 'hqdefault') => `https://i.ytimg.com/vi/${id}/${size}.jpg`;
 
+  /** Put plain text into `el`, turning http(s) links into clickable links that open in a new tab.
+      Built from DOM nodes (never innerHTML), so text typed by staff can't inject markup. */
+  function setTextWithLinks(el, text) {
+    el.textContent = '';
+    const source = String(text || '');
+    const urlPattern = /https?:\/\/[^\s<>"']+/g;
+    let last = 0;
+    let match;
+    while ((match = urlPattern.exec(source))) {
+      let url = match[0];
+      const trailing = url.match(/[.,;:!?)\]]+$/); // "ดูที่ https://x.com/a." -> link without the dot
+      if (trailing) url = url.slice(0, -trailing[0].length);
+      if (match.index > last) el.append(source.slice(last, match.index));
+      const a = document.createElement('a');
+      a.href = url;
+      a.textContent = url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      el.append(a);
+      last = match.index + url.length;
+      urlPattern.lastIndex = last;
+    }
+    if (last < source.length) el.append(source.slice(last));
+  }
+
   window.mediaLinks = {
     parseYouTubeId,
     parseFacebookUrl,
@@ -74,5 +99,6 @@
     youtubeEmbedUrl,
     facebookEmbedUrl,
     youtubeThumb,
+    setTextWithLinks,
   };
 })();
