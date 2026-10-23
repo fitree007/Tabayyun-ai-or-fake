@@ -248,6 +248,7 @@ function applyEditPermissions() {
   els.btnEditCurrent.hidden = !edit;
   els.staffChip.hidden = !(isRemote() && state.user);
   els.staffEmail.textContent = state.user ? state.user.email : '';
+  if (typeof window.onEditPermissionsChanged === 'function') window.onEditPermissionsChanged();
 }
 
 function openLogin() {
@@ -1293,7 +1294,7 @@ function bindEvents() {
           /* not staff, or offline — manager will show the reason on save */
         }
       }
-      openManager();
+      if (document.body.dataset.view !== 'learn') openManager();
     } catch (err) {
       els.loginError.textContent = err.message;
       els.loginError.hidden = false;
@@ -1378,6 +1379,7 @@ function bindEvents() {
       els.managerDialog.open ||
       els.summaryDialog.open ||
       els.loginDialog.open ||
+      document.body.dataset.view === 'learn' ||
       ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)
     ) {
       return;

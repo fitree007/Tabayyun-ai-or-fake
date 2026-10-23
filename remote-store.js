@@ -56,10 +56,16 @@
     if (list.length) await client.storage.from(bucket).remove(list);
   }
 
-  class RemoteQuestionStore {
+  /** Generic JSON-row + media-file store; one instance per table (questions, learn_items). */
+  class RemoteStore {
+    constructor(table, pathPrefix = '') {
+      this.table = table;
+      this.pathPrefix = pathPrefix;
+    }
+
     async getAllQuestions() {
       const { data, error } = await client
-        .from('questions')
+        .from(this.table)
         .select('id, sort_order, data')
         .order('sort_order', { ascending: true });
       if (error) throw new Error('โหลดโจทย์ไม่สำเร็จ: ' + error.message);
@@ -70,7 +76,7 @@
       const hasUpload = q.mediaBlob instanceof Blob || q.mediaBlobB instanceof Blob;
       busy(true, hasUpload ? 'กำลังอัปโหลดไฟล์…' : 'กำลังบันทึก…');
       try {
-        const { data: oldRow } = await client.from('questions').select('data').eq('id', q.id).maybeSingle();
+        const { data: oldRow } = await client.from(this.table).select('data').eq('id', q.id).maybeSingle();
         const old = (oldRow && oldRow.data) || {};
 
         const out = { ...q };
@@ -85,7 +91,7 @@
           const urlKey = 'mediaUrl' + slot;
           const pathKey = 'mediaPath' + slot;
           if (q[blobKey] instanceof Blob) {
-            const up = await uploadMedia(q.id, slot || 'A', q[blobKey]);
+            const up = await uploadMedia(this.pathPrefix + q.id, slot || 'A', q[blobKey]);
             out[urlKey] = up.url;
             out[pathKey] = up.path;
             newPaths.push(up.path);
@@ -97,7 +103,7 @@
           }
         }
 
-        const { error } = await client.from('questions').upsert({
+        const { error } = await client.from(this.table).upsert({
           id: q.id,
           sort_order: q.order ?? 0,
           data: out,
@@ -125,8 +131,8 @@
     async deleteQuestion(id) {
       busy(true, 'กำลังลบ…');
       try {
-        const { data: row } = await client.from('questions').select('data').eq('id', id).maybeSingle();
-        const { error } = await client.from('questions').delete().eq('id', id);
+        const { data: row } = await client.from(this.table).select('data').eq('id', id).maybeSingle();
+        const { error } = await client.from(this.table).delete().eq('id', id);
         if (error) throw new Error('ลบไม่สำเร็จ (ต้องเข้าสู่ระบบด้วยอีเมลสตาฟ): ' + error.message);
         if (row && row.data) await removePaths([row.data.mediaPath, row.data.mediaPathB]);
       } finally {
@@ -137,8 +143,8 @@
     async clearAll() {
       busy(true, 'กำลังลบทั้งหมด…');
       try {
-        const { data: rows } = await client.from('questions').select('id, data');
-        const { error } = await client.from('questions').delete().neq('id', '');
+        const { data: rows } = await client.from(this.table).select('id, data');
+        const { error } = await client.from(this.table).delete().neq('id', '');
         if (error) throw new Error('ลบไม่สำเร็จ (ต้องเข้าสู่ระบบด้วยอีเมลสตาฟ): ' + error.message);
         const paths = [];
         (rows || []).forEach((r) => paths.push(r.data && r.data.mediaPath, r.data && r.data.mediaPathB));
@@ -167,6 +173,7 @@
     },
   };
 
-  window.questionStore = new RemoteQuestionStore();
+  window.questionStore = new RemoteStore('questions');
+  window.learnStore = new RemoteStore('learn_items', 'learn/');
   window.APP_MODE = 'remote';
 })();

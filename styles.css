@@ -797,6 +797,176 @@ dialog.dialog-narrow { width: min(92vw, 420px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* ==========================================================================
+   View tabs (เกมทาย | สาระน่ารู้) and the learn gallery
+   ========================================================================== */
+.game-main[hidden], .learn-main[hidden] { display: none; }
+
+.view-tabs {
+  display: inline-flex;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  margin-left: 0.4rem;
+  background: var(--bg-subtle);
+  border-radius: 12px;
+}
+.view-tab {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 0.38rem 0.95rem;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.view-tab:hover { color: var(--color-primary); }
+.view-tab.is-active { background: var(--bg-surface); color: var(--color-primary); box-shadow: var(--shadow-pill); }
+
+/* game-only controls are hidden on the learn tab */
+body[data-view="learn"] #progressBadge,
+body[data-view="learn"] .hud-stats,
+body[data-view="learn"] #btnTimerToggle,
+body[data-view="learn"] #btnOpenManager { display: none; }
+
+.learn-main {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1.4rem 1.5rem 2.2rem;
+}
+.learn-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  max-width: 1400px;
+  margin: 0 auto 1.1rem;
+}
+.learn-title { font-size: clamp(1.4rem, 2.4vw, 1.9rem); font-weight: 700; letter-spacing: -0.02em; }
+.learn-sub { color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.2rem; }
+.learn-head-actions { display: flex; align-items: center; gap: 0.75rem; }
+.learn-count { font-size: 0.85rem; color: var(--text-muted); }
+
+.learn-grid {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.1rem;
+}
+.learn-empty {
+  max-width: 1400px;
+  margin: 3rem auto;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.learn-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.learn-card:hover, .learn-card:focus-visible {
+  transform: translateY(-3px);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-card);
+  outline: none;
+}
+.learn-thumb { position: relative; aspect-ratio: 16 / 9; background: var(--media-bg); overflow: hidden; }
+.learn-thumb img, .learn-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.learn-play { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+.learn-play span {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(11, 20, 38, 0.6);
+  backdrop-filter: blur(4px);
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+.learn-card:hover .learn-play span { transform: scale(1.1); background: var(--color-primary); }
+.learn-play svg { width: 22px; height: 22px; margin-left: 3px; fill: #fff; }
+.learn-kind {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(11, 20, 38, 0.7);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.learn-card-body { padding: 0.8rem 1rem 1rem; }
+.learn-card-title {
+  font-weight: 600;
+  font-size: 1rem;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.learn-card-desc {
+  margin-top: 0.3rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.learn-card-actions { position: absolute; top: 8px; right: 8px; z-index: 2; display: flex; gap: 0.3rem; }
+.learn-card-actions button {
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  border: none;
+  background: rgba(255, 255, 255, 0.92);
+  color: #0f1f3d;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.learn-card-actions button:hover { background: #fff; color: var(--color-primary); }
+.learn-card-actions button.is-danger:hover { color: var(--color-wrong); }
+
+dialog.dialog-wide { width: min(96vw, 1100px); }
+.learn-viewer-body { padding: 1rem 1.25rem 1.25rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.9rem; }
+.learn-viewer-media {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 66vh;
+  background: var(--media-bg);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.learn-viewer-media video, .learn-viewer-media img, .learn-viewer-media iframe {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border: 0;
+  display: block;
+}
+.learn-viewer-desc { color: var(--text-secondary); line-height: 1.65; white-space: pre-line; }
+.learn-viewer-desc:empty { display: none; }
+.learn-viewer-nav { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.learn-viewer-pos { font-size: 0.85rem; color: var(--text-muted); }
+.form-textarea { resize: vertical; min-height: 4.5rem; }
+
 /* Phones / narrow windows: stack and allow scrolling */
 @media (max-width: 800px) {
   body { height: auto; min-height: 100dvh; overflow: auto; }

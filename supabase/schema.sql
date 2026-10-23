@@ -81,5 +81,31 @@ create policy "media staff delete"
   to authenticated
   using (bucket_id = 'media' and public.is_staff());
 
+-- 4.1) แท็บ "สาระน่ารู้": ตารางเก็บคลิป/รูป/ลิงก์ YouTube (ไฟล์ใช้ bucket media เดียวกัน)
+--      รันซ้ำได้ปลอดภัย (ใช้ if not exists / drop policy if exists)
+create table if not exists public.learn_items (
+  id          text primary key,
+  sort_order  integer not null default 0,
+  data        jsonb   not null,
+  updated_at  timestamptz not null default now()
+);
+
+alter table public.learn_items enable row level security;
+
+drop policy if exists "learn public read" on public.learn_items;
+create policy "learn public read"
+  on public.learn_items for select
+  using (true);
+
+drop policy if exists "learn staff write" on public.learn_items;
+create policy "learn staff write"
+  on public.learn_items for all
+  to authenticated
+  using (public.is_staff())
+  with check (public.is_staff());
+
+grant select on public.learn_items to anon, authenticated;
+grant insert, update, delete on public.learn_items to authenticated;
+
 -- 5) เพิ่มอีเมลสตาฟ (แก้เป็นอีเมลจริงของคุณและสตาฟ แล้วรันบรรทัดนี้)
 -- insert into public.staff (email) values ('you@example.com'), ('staff1@example.com');

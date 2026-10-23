@@ -3,12 +3,14 @@
  * Supports large Image & Video Blobs persistently in the browser.
  */
 const DB_NAME = 'AIRealManipulatedGameDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_QUESTIONS = 'questions';
+const STORE_LEARN = 'learn';
 
 class QuestionStore {
-  constructor() {
+  constructor(storeName = STORE_QUESTIONS) {
     this.db = null;
+    this.storeName = storeName;
   }
 
   async init() {
@@ -17,10 +19,12 @@ class QuestionStore {
       const req = indexedDB.open(DB_NAME, DB_VERSION);
       req.onupgradeneeded = (e) => {
         const db = e.target.result;
-        if (!db.objectStoreNames.contains(STORE_QUESTIONS)) {
-          const store = db.createObjectStore(STORE_QUESTIONS, { keyPath: 'id' });
-          store.createIndex('order', 'order', { unique: false });
-        }
+        [STORE_QUESTIONS, STORE_LEARN].forEach((name) => {
+          if (!db.objectStoreNames.contains(name)) {
+            const store = db.createObjectStore(name, { keyPath: 'id' });
+            store.createIndex('order', 'order', { unique: false });
+          }
+        });
       };
       req.onsuccess = (e) => {
         this.db = e.target.result;
@@ -33,8 +37,8 @@ class QuestionStore {
   async getAllQuestions() {
     await this.init();
     return new Promise((resolve, reject) => {
-      const tx = this.db.transaction(STORE_QUESTIONS, 'readonly');
-      const store = tx.objectStore(STORE_QUESTIONS);
+      const tx = this.db.transaction(this.storeName, 'readonly');
+      const store = tx.objectStore(this.storeName);
       const req = store.getAll();
       req.onsuccess = () => {
         const items = req.result || [];
@@ -48,8 +52,8 @@ class QuestionStore {
   async saveQuestion(question) {
     await this.init();
     return new Promise((resolve, reject) => {
-      const tx = this.db.transaction(STORE_QUESTIONS, 'readwrite');
-      const store = tx.objectStore(STORE_QUESTIONS);
+      const tx = this.db.transaction(this.storeName, 'readwrite');
+      const store = tx.objectStore(this.storeName);
       const req = store.put(question);
       req.onsuccess = () => resolve(question);
       req.onerror = (e) => reject(e.target.error);
@@ -59,8 +63,8 @@ class QuestionStore {
   async saveAllQuestions(questions) {
     await this.init();
     return new Promise((resolve, reject) => {
-      const tx = this.db.transaction(STORE_QUESTIONS, 'readwrite');
-      const store = tx.objectStore(STORE_QUESTIONS);
+      const tx = this.db.transaction(this.storeName, 'readwrite');
+      const store = tx.objectStore(this.storeName);
       questions.forEach((q, idx) => {
         q.order = idx;
         store.put(q);
@@ -73,8 +77,8 @@ class QuestionStore {
   async deleteQuestion(id) {
     await this.init();
     return new Promise((resolve, reject) => {
-      const tx = this.db.transaction(STORE_QUESTIONS, 'readwrite');
-      const store = tx.objectStore(STORE_QUESTIONS);
+      const tx = this.db.transaction(this.storeName, 'readwrite');
+      const store = tx.objectStore(this.storeName);
       const req = store.delete(id);
       req.onsuccess = () => resolve();
       req.onerror = (e) => reject(e.target.error);
@@ -84,8 +88,8 @@ class QuestionStore {
   async clearAll() {
     await this.init();
     return new Promise((resolve, reject) => {
-      const tx = this.db.transaction(STORE_QUESTIONS, 'readwrite');
-      const store = tx.objectStore(STORE_QUESTIONS);
+      const tx = this.db.transaction(this.storeName, 'readwrite');
+      const store = tx.objectStore(this.storeName);
       const req = store.clear();
       req.onsuccess = () => resolve();
       req.onerror = (e) => reject(e.target.error);
@@ -424,5 +428,6 @@ function getDefaultSampleQuestions() {
   ];
 }
 
-window.questionStore = new QuestionStore();
+window.questionStore = new QuestionStore(STORE_QUESTIONS);
+window.learnStore = new QuestionStore(STORE_LEARN);
 window.getDefaultSampleQuestions = getDefaultSampleQuestions;
