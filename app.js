@@ -747,7 +747,7 @@ function showAnswerBurst(isCorrect, timedOut) {
   const mark = isCorrect
     ? '<path class="burst-mark" pathLength="100" d="M35 62l17 17 34-37"/>'
     : '<path class="burst-mark" pathLength="100" d="M41 41l38 38M79 41l-38 38"/>';
-  const label = isCorrect ? 'ถูกต้อง!' : timedOut ? 'หมดเวลา!' : 'ผิด!';
+  const label = isCorrect ? 'ถูกต้อง' : timedOut ? 'หมดเวลา' : 'ผิด';
   burst.innerHTML = `
     <div class="burst-badge">
       <svg viewBox="0 0 120 120"><circle class="burst-circle" cx="60" cy="60" r="54"/>${mark}</svg>
@@ -815,16 +815,16 @@ function revealAnswer(q, selectedChoice) {
   setFeedbackCollapsed(false);
 
   if (selectedChoice === 'timeout') {
-    els.feedbackStatusText.textContent = `หมดเวลา! เฉลยคือ "${correctMeta.label}"`;
+    els.feedbackStatusText.textContent = `หมดเวลา เฉลยคือ "${correctMeta.label}"`;
   } else if (isCorrect) {
-    els.feedbackStatusText.textContent = `ถูกต้อง! คำตอบคือ "${correctMeta.label}"`;
+    els.feedbackStatusText.textContent = `ถูกต้อง คำตอบคือ "${correctMeta.label}"`;
   } else {
-    els.feedbackStatusText.textContent = `ผิด! คำตอบที่ถูกคือ "${correctMeta.label}"`;
+    els.feedbackStatusText.textContent = `ผิด คำตอบที่ถูกคือ "${correctMeta.label}"`;
   }
 
   els.feedbackExplanationText.textContent =
     q.explanation ||
-    `ข้อนี้เฉลยคือ "${correctMeta.label}" (${correctMeta.subLabel || ''}) กดปุ่มถัดไปเพื่อเล่นข้อต่อไปได้เลย!`;
+    `ข้อนี้เฉลยคือ "${correctMeta.label}" (${correctMeta.subLabel || ''}) กดปุ่มถัดไปเพื่อเล่นข้อต่อไปได้เลย`;
 
   const isLast = state.currentIndex === state.questions.length - 1;
   els.btnNextAfterAnswer.textContent = isLast ? 'ดูสรุปคะแนน' : 'ข้อถัดไป';
@@ -1053,7 +1053,7 @@ function showGameSummary() {
 
   els.summaryTrophyIcon.textContent = `${pct}%`;
   if (pct >= 80) {
-    els.summaryHeadline.textContent = 'สุดยอดนักจับผิด AI!';
+    els.summaryHeadline.textContent = 'สุดยอดนักจับผิด AI';
   } else if (pct >= 50) {
     els.summaryHeadline.textContent = 'สายตาเฉียบคมไม่เบา';
   } else {
