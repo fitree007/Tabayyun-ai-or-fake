@@ -533,8 +533,8 @@ function mountFacebookPlayer(card, url) {
     frame.className = `media-embed${vertical ? ' is-vertical' : ''}`;
     frame.src = links.facebookEmbedUrl(url);
     frame.title = 'Facebook';
-    frame.allow = 'autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share; fullscreen';
-    frame.allowFullscreen = true;
+    // no player fullscreen: our own "เต็มจอ" keeps the pen layer and answer banner on top
+    frame.allow = 'autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share';
     holder.replaceWith(frame);
     card.dataset.embedControl = 'none';
     if (card.isConnected) setPen(false, { auto: true }); // nothing on our side can press play for this one
@@ -551,7 +551,7 @@ function mountFacebookPlayer(card, url) {
       el.dataset.href = url;
       el.dataset.width = String(width);
       el.dataset.showText = 'false';
-      el.dataset.allowfullscreen = 'true';
+      el.dataset.allowfullscreen = 'false'; // our own fullscreen keeps the pen available
       holder.appendChild(el);
       const ready = new Promise((resolve, reject) => {
         fbWaiting.set(id, resolve);
@@ -766,8 +766,8 @@ function createMediaCardElement({ mediaType, src, badgeText, choiceKey, muteVide
       frame.className = 'media-embed';
       frame.src = window.mediaLinks.youtubeEmbedUrl(youtubeId);
       frame.title = badgeText;
-      frame.allow = 'autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share; fullscreen';
-      frame.allowFullscreen = true;
+      // no player fullscreen: the player alone would go fullscreen without the pen layer — ours ("เต็มจอ" / F) has it
+      frame.allow = 'autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share';
       frame.referrerPolicy = 'strict-origin-when-cross-origin';
       watchEmbedAudio(frame);
       card.appendChild(frame);
@@ -785,7 +785,12 @@ function createMediaCardElement({ mediaType, src, badgeText, choiceKey, muteVide
     const video = document.createElement('video');
     video.className = `media-element ${state.coverFit ? 'cover-fit' : ''}`;
     video.controls = true;
-    video.controlsList = 'nodownload';
+    // the video's own fullscreen would leave the pen layer behind; double-click opens ours instead
+    video.controlsList = 'nodownload nofullscreen';
+    video.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      toggleFullscreen();
+    });
     video.playsInline = true;
     video.loop = true;
     video.preload = 'auto';
@@ -1829,6 +1834,18 @@ function bindEvents() {
   els.btnFullscreen.addEventListener('click', toggleFullscreen);
   els.btnExitFullscreen.addEventListener('click', toggleFullscreen);
   document.addEventListener('fullscreenchange', syncFullscreenUI);
+  // Safety net: if a clip still goes fullscreen on its own (some browsers), swap to our fullscreen so the pen works
+  document.addEventListener('fullscreenchange', () => {
+    const fsEl = document.fullscreenElement;
+    if (!fsEl || fsEl === els.stageWrap || !els.mediaStage.contains(fsEl)) return;
+    document
+      .exitFullscreen()
+      .then(() => els.stageWrap.requestFullscreen())
+      .catch(() => {
+        els.stageWrap.classList.add('is-pseudo-fullscreen');
+        syncFullscreenUI();
+      });
+  });
   document.addEventListener('webkitfullscreenchange', syncFullscreenUI);
   els.btnCollapseFeedback.addEventListener('click', () => {
     setFeedbackCollapsed(!els.feedbackBanner.classList.contains('is-collapsed'));
