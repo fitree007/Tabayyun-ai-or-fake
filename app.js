@@ -79,6 +79,7 @@ const CHOICE_META = {
 };
 
 const SETTINGS_KEY = 'airt.settings.v1';
+const SEEDED_KEY = 'airt.samplesSeeded.v1';
 
 const state = {
   questions: [],
@@ -225,10 +226,16 @@ async function initApp() {
   let stored = [];
   try {
     stored = await window.questionStore.getAllQuestions();
-    if ((!stored || stored.length === 0) && canEdit()) {
-      const samples = window.getDefaultSampleQuestions();
-      await window.questionStore.saveAllQuestions(samples);
+    // Demo questions are only seeded once, on the very first local run. They are never re-added
+    // after being deleted, and never added automatically to the online database.
+    if ((!stored || stored.length === 0) && !isRemote() && !localStorage.getItem(SEEDED_KEY)) {
+      await window.questionStore.saveAllQuestions(window.getDefaultSampleQuestions());
       stored = await window.questionStore.getAllQuestions();
+    }
+    try {
+      localStorage.setItem(SEEDED_KEY, '1');
+    } catch (_) {
+      /* ignore */
     }
   } catch (err) {
     alert(err.message || 'โหลดโจทย์ไม่สำเร็จ');
@@ -1284,16 +1291,6 @@ function bindEvents() {
       await closeTopLayer(els.loginDialog);
       state.user = await window.authApi.getUser();
       applyEditPermissions();
-      // Staff might have signed in to an empty database: offer the sample questions
-      if (state.questions.length === 0) {
-        try {
-          await window.questionStore.saveAllQuestions(window.getDefaultSampleQuestions());
-          state.questions = await window.questionStore.getAllQuestions();
-          renderCurrentQuestion(false);
-        } catch (_) {
-          /* not staff, or offline — manager will show the reason on save */
-        }
-      }
       if (document.body.dataset.view !== 'learn') openManager();
     } catch (err) {
       els.loginError.textContent = err.message;
