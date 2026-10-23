@@ -118,11 +118,21 @@
           <!-- Populated by app.js -->
         </div>
 
+        <!-- Host pen: circle spots on the media; strokes fade out by themselves -->
+        <canvas class="draw-layer" id="drawLayer" aria-hidden="true"></canvas>
+
+        <!-- Shown only in fullscreen (the page toolbar is hidden there) -->
+        <div class="stage-fs-bar">
+          <button type="button" id="btnFsPen" aria-pressed="false" title="ปากกาวง (P)">ปากกาวง <span id="fsPenStateText">OFF</span></button>
+          <button type="button" id="btnExitFullscreen" title="ออกจากเต็มจอ (F หรือ Esc)">ออกจากเต็มจอ ✕</button>
+        </div>
+
         <!-- Reveal banner (overlays the bottom of the media) -->
         <section class="feedback-banner" id="feedbackBanner" hidden aria-live="assertive">
           <div class="feedback-header">
             <div class="feedback-status" id="feedbackStatusText">ถูกต้อง</div>
             <div class="feedback-actions">
+              <button type="button" class="btn-collapse" id="btnCollapseFeedback" aria-expanded="true" title="หุบกล่องเฉลยเพื่อดูภาพเต็ม">หุบ</button>
               <button type="button" class="btn-next" id="btnNextAfterAnswer">ข้อถัดไป</button>
             </div>
           </div>
@@ -140,6 +150,16 @@
           <button type="button" class="btn-pill-toggle" id="btnFitToggle" aria-pressed="false" title="สลับการแสดงผล เต็มกรอบ / พอดีภาพ">
             <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/></svg>
             <span id="fitStateText">พอดีภาพ</span>
+          </button>
+
+          <button type="button" class="btn-pill-toggle" id="btnPenToggle" aria-pressed="false" title="ปากกาวงจุดบนภาพ (ปุ่มลัด P) — เส้นจะค่อย ๆ จางหายเอง">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 4.2A8 8 0 1 0 19.8 11"/><path d="M21 3l-6.5 6.5-2 .5.5-2L19.5 1.5z"/></svg>
+            <span>ปากกาวง <span id="penStateText">OFF</span></span>
+          </button>
+
+          <button type="button" class="btn-pill-toggle" id="btnFullscreen" aria-pressed="false" title="ขยายภาพ/วิดีโอเต็มจอ (ปุ่มลัด F)">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+            <span id="fullscreenText">เต็มจอ</span>
           </button>
         </div>
 

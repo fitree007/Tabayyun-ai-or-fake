@@ -127,6 +127,16 @@ const els = {
   btnThemeToggle: document.getElementById('btnThemeToggle'),
   btnOpenManager: document.getElementById('btnOpenManager'),
   btnEditCurrent: document.getElementById('btnEditCurrent'),
+  drawLayer: document.getElementById('drawLayer'),
+  btnPenToggle: document.getElementById('btnPenToggle'),
+  penStateText: document.getElementById('penStateText'),
+  stageWrap: document.querySelector('.stage-wrap'),
+  btnFullscreen: document.getElementById('btnFullscreen'),
+  fullscreenText: document.getElementById('fullscreenText'),
+  btnFsPen: document.getElementById('btnFsPen'),
+  fsPenStateText: document.getElementById('fsPenStateText'),
+  btnExitFullscreen: document.getElementById('btnExitFullscreen'),
+  btnCollapseFeedback: document.getElementById('btnCollapseFeedback'),
   btnDeleteInForm: document.getElementById('btnDeleteInForm'),
   loginDialog: document.getElementById('loginDialog'),
   btnCloseLogin: document.getElementById('btnCloseLogin'),
@@ -204,6 +214,7 @@ async function initApp() {
   setupDialogEnhancements(els.loginDialog);
   loadSettings();
   bindEvents();
+  setupPen();
   syncSoundUI();
 
   window.onStoreBusy = (on, text) => {
@@ -377,6 +388,7 @@ function resolveMediaSource(blobOrData, fallbackUrl, bucket = state.activeObject
    ========================================================================== */
 function renderCurrentQuestion(playRevealSfx = true) {
   stopTimer();
+  clearPen();
   cleanupObjectUrlsAndObservers();
   state.isAnswered = false;
   els.feedbackBanner.hidden = true;
@@ -704,10 +716,11 @@ function revealAnswer(q, selectedChoice) {
     }
   });
 
-  // Show Feedback & Explanation Banner
+  // Show Feedback & Explanation Banner (always opens expanded; the host can collapse it to point at the media)
   const correctMeta = CHOICE_META[q.correctAnswer] || { icon: '', label: q.correctAnswer };
   els.feedbackBanner.hidden = false;
   els.feedbackBanner.className = `feedback-banner ${isCorrect ? 'correct' : 'wrong'}`;
+  setFeedbackCollapsed(false);
 
   if (selectedChoice === 'timeout') {
     els.feedbackStatusText.textContent = `หมดเวลา! เฉลยคือ "${correctMeta.label}"`;
@@ -723,6 +736,151 @@ function revealAnswer(q, selectedChoice) {
 
   const isLast = state.currentIndex === state.questions.length - 1;
   els.btnNextAfterAnswer.textContent = isLast ? 'ดูสรุปคะแนน' : 'ข้อถัดไป';
+}
+
+function setFeedbackCollapsed(collapsed) {
+  els.feedbackBanner.classList.toggle('is-collapsed', collapsed);
+  els.btnCollapseFeedback.setAttribute('aria-expanded', String(!collapsed));
+  els.btnCollapseFeedback.textContent = collapsed ? 'แสดงเฉลย' : 'หุบ';
+  els.btnCollapseFeedback.title = collapsed ? 'แสดงกล่องเฉลยอีกครั้ง' : 'หุบกล่องเฉลยเพื่อดูภาพเต็ม';
+}
+
+/* ==========================================================================
+   7b. Host pen — draw circles on the media; each stroke holds, then fades away
+   ========================================================================== */
+const PEN_HOLD_MS = 2200;
+const PEN_FADE_MS = 1300;
+const pen = { on: false, strokes: [], current: null, raf: 0, ctx: null, w: 0, h: 0 };
+
+function setupPen() {
+  const canvas = els.drawLayer;
+  pen.ctx = canvas.getContext('2d');
+  new ResizeObserver(sizePenCanvas).observe(canvas.parentElement);
+  sizePenCanvas();
+
+  const point = (e) => {
+    const r = canvas.getBoundingClientRect();
+    return [e.clientX - r.left, e.clientY - r.top];
+  };
+  canvas.addEventListener('pointerdown', (e) => {
+    if (!pen.on) return;
+    e.preventDefault();
+    canvas.setPointerCapture(e.pointerId);
+    pen.current = { points: [point(e)], endedAt: 0 };
+    pen.strokes.push(pen.current);
+    startPenLoop();
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!pen.current) return;
+    const coalesced = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+    (coalesced.length ? coalesced : [e]).forEach((ev) => pen.current.points.push(point(ev)));
+  });
+  const end = () => {
+    if (!pen.current) return;
+    pen.current.endedAt = performance.now();
+    pen.current = null;
+  };
+  canvas.addEventListener('pointerup', end);
+  canvas.addEventListener('pointercancel', end);
+}
+
+function sizePenCanvas() {
+  const canvas = els.drawLayer;
+  const r = canvas.parentElement.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const width = Math.round(r.width * dpr);
+  const height = Math.round(r.height * dpr);
+  if (width === canvas.width && height === canvas.height) return;
+  pen.w = r.width;
+  pen.h = r.height;
+  canvas.width = width; // resizing a canvas wipes it, so redraw the strokes that are still alive
+  canvas.height = height;
+  pen.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawPen();
+}
+
+function setPen(on) {
+  pen.on = on;
+  els.drawLayer.classList.toggle('is-active', on);
+  els.btnPenToggle.setAttribute('aria-pressed', String(on));
+  els.btnFsPen.setAttribute('aria-pressed', String(on));
+  els.penStateText.textContent = els.fsPenStateText.textContent = on ? 'ON' : 'OFF';
+  if (!on) clearPen();
+}
+
+/* Fullscreen for the media area (media + pen layer + answer banner go fullscreen together).
+   Falls back to a fixed full-window overlay where the Fullscreen API isn't available (e.g. iPhone). */
+function isStageFullscreen() {
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+  return fsEl === els.stageWrap || els.stageWrap.classList.contains('is-pseudo-fullscreen');
+}
+
+function syncFullscreenUI() {
+  const on = isStageFullscreen();
+  els.btnFullscreen.setAttribute('aria-pressed', String(on));
+  els.fullscreenText.textContent = on ? 'ออกจากเต็มจอ' : 'เต็มจอ';
+  sizePenCanvas(); // don't wait for the ResizeObserver, so the first stroke lands where it's drawn
+}
+
+function toggleFullscreen() {
+  const el = els.stageWrap;
+  if (isStageFullscreen()) {
+    if (el.classList.contains('is-pseudo-fullscreen')) el.classList.remove('is-pseudo-fullscreen');
+    else (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    syncFullscreenUI();
+    return;
+  }
+  const request = el.requestFullscreen || el.webkitRequestFullscreen;
+  const pseudo = () => {
+    el.classList.add('is-pseudo-fullscreen');
+    syncFullscreenUI();
+  };
+  if (!request) return pseudo();
+  const result = request.call(el);
+  if (result && result.catch) result.catch(pseudo);
+}
+
+function clearPen() {
+  pen.strokes = [];
+  pen.current = null;
+  drawPen();
+}
+
+function startPenLoop() {
+  if (!pen.raf) pen.raf = requestAnimationFrame(penFrame);
+}
+
+function penFrame(now) {
+  pen.raf = 0;
+  pen.strokes = pen.strokes.filter((s) => !s.endedAt || now - s.endedAt < PEN_HOLD_MS + PEN_FADE_MS);
+  drawPen(now);
+  if (pen.strokes.length) pen.raf = requestAnimationFrame(penFrame);
+}
+
+function drawPen(now = performance.now()) {
+  const ctx = pen.ctx;
+  if (!ctx) return;
+  ctx.clearRect(0, 0, pen.w, pen.h);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  pen.strokes.forEach((s) => {
+    const alpha = s.endedAt ? 1 - Math.min(1, Math.max(0, (now - s.endedAt - PEN_HOLD_MS) / PEN_FADE_MS)) : 1;
+    if (alpha <= 0) return;
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    const [x0, y0] = s.points[0];
+    ctx.moveTo(x0, y0);
+    if (s.points.length === 1) ctx.lineTo(x0 + 0.1, y0); // a tap still leaves a dot
+    for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i][0], s.points[i][1]);
+    // white halo first so the red line reads on dark and light images alike
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.lineWidth = 11;
+    ctx.stroke();
+    ctx.strokeStyle = '#ff2d55';
+    ctx.lineWidth = 5.5;
+    ctx.stroke();
+  });
+  ctx.globalAlpha = 1;
 }
 
 function appendCardResultStamp(card, text, isPositive) {
@@ -1176,6 +1334,17 @@ function bindEvents() {
     });
   });
 
+  // Host pen + collapsible answer banner
+  els.btnPenToggle.addEventListener('click', () => setPen(!pen.on));
+  els.btnFsPen.addEventListener('click', () => setPen(!pen.on));
+  els.btnFullscreen.addEventListener('click', toggleFullscreen);
+  els.btnExitFullscreen.addEventListener('click', toggleFullscreen);
+  document.addEventListener('fullscreenchange', syncFullscreenUI);
+  document.addEventListener('webkitfullscreenchange', syncFullscreenUI);
+  els.btnCollapseFeedback.addEventListener('click', () => {
+    setFeedbackCollapsed(!els.feedbackBanner.classList.contains('is-collapsed'));
+  });
+
   // Fit Mode Toggle (Cover vs Contain)
   els.btnFitToggle.addEventListener('click', () => {
     state.coverFit = !state.coverFit;
@@ -1419,6 +1588,14 @@ function bindEvents() {
     } else if ((e.key === 'ArrowRight' || e.key === 'Enter') && state.isAnswered) {
       e.preventDefault();
       goToNextQuestionOrSummary();
+    } else if (e.key.toLowerCase() === 'p') {
+      setPen(!pen.on);
+    } else if (e.key.toLowerCase() === 'f') {
+      toggleFullscreen();
+    } else if (e.key === 'Escape' && els.stageWrap.classList.contains('is-pseudo-fullscreen')) {
+      toggleFullscreen();
+    } else if (e.key === 'Escape' && pen.on) {
+      setPen(false);
     } else if (e.key.toLowerCase() === 'm') {
       els.btnMuteAll.click();
     } else if (e.key.toLowerCase() === 'd') {

@@ -601,6 +601,81 @@ body.all-muted .ico-sound-off { display: block; }
 .explanation-text { color: var(--text-secondary); font-size: 0.97rem; line-height: 1.65; }
 .feedback-actions { display: flex; gap: 0.75rem; }
 
+.btn-collapse {
+  padding: 0.62rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  color: var(--text-main);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.btn-collapse:hover { background: var(--bg-subtle); }
+
+/* Collapsed: shrink to a small pill in the bottom-right corner so the media is visible */
+.feedback-banner.is-collapsed {
+  left: auto;
+  right: 0.9rem;
+  padding: 0.45rem;
+  gap: 0;
+  max-height: none;
+  overflow: visible;
+}
+.feedback-banner.is-collapsed .feedback-status,
+.feedback-banner.is-collapsed .explanation-text { display: none; }
+
+/* Fullscreen media area (real Fullscreen API, or a fixed overlay fallback) */
+.stage-wrap:fullscreen,
+.stage-wrap.is-pseudo-fullscreen { background: #05080f; }
+.stage-wrap:-webkit-full-screen { background: #05080f; width: 100%; height: 100%; }
+.stage-wrap.is-pseudo-fullscreen { position: fixed; inset: 0; z-index: 200; width: auto; }
+.stage-wrap:fullscreen .media-stage,
+.stage-wrap.is-pseudo-fullscreen .media-stage { width: 100%; height: 100%; aspect-ratio: auto; }
+.stage-wrap:fullscreen .media-card,
+.stage-wrap.is-pseudo-fullscreen .media-card { border-radius: 0; box-shadow: none; }
+
+.stage-fs-bar {
+  display: none;
+  position: absolute;
+  top: 0.8rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 13;
+  gap: 0.4rem;
+}
+.stage-wrap:fullscreen .stage-fs-bar,
+.stage-wrap.is-pseudo-fullscreen .stage-fs-bar { display: flex; }
+.stage-fs-bar button {
+  padding: 0.42rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(11, 20, 38, 0.72);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.stage-fs-bar button:hover { background: rgba(37, 99, 235, 0.9); }
+.stage-fs-bar button[aria-pressed="true"] { background: var(--color-fill); border-color: var(--color-fill); }
+
+/* Host pen layer over the media */
+.draw-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  pointer-events: none;
+}
+.draw-layer.is-active {
+  pointer-events: auto;
+  touch-action: none;
+  cursor: crosshair;
+}
+
 .btn-next {
   padding: 0.65rem 1.4rem;
   border-radius: 12px;
