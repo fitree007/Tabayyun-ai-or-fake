@@ -15,6 +15,7 @@
     empty: $('learnEmpty'),
     count: $('learnCount'),
     btnAdd: $('btnAddLearn'),
+    btnSignOut: $('btnLearnSignOut'),
     viewer: $('learnViewer'),
     viewerTitle: $('learnViewerTitle'),
     viewerMedia: $('learnViewerMedia'),
@@ -87,6 +88,7 @@
     const label = el.btnAdd.querySelector('span');
     el.btnAdd.hidden = false;
     if (label) label.textContent = canEdit() ? 'เพิ่มสาระน่ารู้' : 'เข้าสู่ระบบสตาฟ';
+    el.btnSignOut.hidden = !(window.APP_MODE === 'remote' && state.user);
   }
 
   /* ---------- view switching ---------- */
@@ -423,6 +425,7 @@
     el.tabs.forEach((tab) => tab.addEventListener('click', () => showView(tab.dataset.view)));
 
     el.btnAdd.addEventListener('click', () => (canEdit() ? openForm(null) : openLogin()));
+    el.btnSignOut.addEventListener('click', () => window.authApi && window.authApi.signOut());
     el.inSource.addEventListener('change', syncSourceFields);
     el.form.addEventListener('submit', onSubmit);
     el.btnDelete.addEventListener('click', () => {

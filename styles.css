@@ -19,13 +19,16 @@
   --bg-subtle: #eaf1fb;
   --text-main: #0f1f3d;
   --text-secondary: #46587a;
-  --text-muted: #7184a6;
+  --text-muted: #5b6b8c; /* ≥4.5:1 on white and on --bg-subtle */
   --border-color: #d9e4f4;
   --shadow-card: 0 10px 30px -12px rgba(37, 99, 235, 0.22), 0 2px 6px rgba(15, 31, 61, 0.05);
   --shadow-pill: 0 1px 3px rgba(15, 31, 61, 0.06);
 
   --color-primary: #2563eb;
   --color-primary-hover: #1d4ed8;
+  /* filled buttons with white text — kept dark enough for ≥4.5:1 in both themes */
+  --color-fill: #2563eb;
+  --color-fill-hover: #1d4ed8;
   --color-primary-soft: #e6efff;
   --color-correct: #16a34a;
   --color-wrong: #dc2626;
@@ -53,6 +56,9 @@
   margin: 0;
   padding: 0;
 }
+
+/* the hidden attribute must win over component display rules (e.g. .btn-nav { display: inline-flex }) */
+[hidden] { display: none !important; }
 
 body {
   font-family: "Prompt", "Noto Sans Thai", "Inter", system-ui, -apple-system, sans-serif;
@@ -98,7 +104,7 @@ button { font-family: inherit; }
   z-index: 30;
 }
 
-.brand-group { display: flex; align-items: center; gap: 0.7rem; }
+.brand-group { display: flex; align-items: center; flex-wrap: wrap; gap: 0.7rem; min-width: 0; }
 
 /* Logo sits on white so it stays legible in dark mode too */
 .brand-logo-img {
@@ -112,6 +118,7 @@ button { font-family: inherit; }
 }
 
 .brand-badge {
+  white-space: nowrap;
   font-size: 0.75rem;
   padding: 0.18rem 0.6rem;
   border-radius: 999px;
@@ -150,8 +157,8 @@ button { font-family: inherit; }
   transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 .btn-nav:hover { background: var(--bg-subtle); }
-.btn-nav.primary { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
-.btn-nav.primary:hover { background: var(--color-primary-hover); }
+.btn-nav.primary { background: var(--color-fill); border-color: var(--color-fill); color: #fff; }
+.btn-nav.primary:hover { background: var(--color-fill-hover); border-color: var(--color-fill-hover); }
 .btn-nav.btn-icon { padding: 0.45rem 0.6rem; }
 .btn-nav.btn-danger { color: var(--color-wrong); }
 
@@ -388,7 +395,7 @@ body.all-muted .ico-sound-off { display: block; }
   padding: 0.5rem 1rem;
   border-radius: 999px;
   border: none;
-  background: var(--color-primary);
+  background: var(--color-fill);
   color: #fff;
   font-size: 0.85rem;
   font-weight: 600;
@@ -561,14 +568,14 @@ body.all-muted .ico-sound-off { display: block; }
   padding: 0.65rem 1.4rem;
   border-radius: 12px;
   border: none;
-  background: var(--color-primary);
+  background: var(--color-fill);
   color: #fff;
   font-size: 0.98rem;
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
-.btn-next:hover { background: var(--color-primary-hover); }
+.btn-next:hover { background: var(--color-fill-hover); }
 
 /* ==========================================================================
    Host SFX dock
@@ -775,7 +782,7 @@ dialog.dialog-narrow { width: min(92vw, 420px); }
   gap: 0.6rem;
   padding: 0.6rem 1.1rem;
   border-radius: 999px;
-  background: var(--color-primary);
+  background: var(--color-fill);
   color: #fff;
   font-size: 0.88rem;
   font-weight: 600;
@@ -811,6 +818,7 @@ dialog.dialog-narrow { width: min(92vw, 420px); }
   border-radius: 12px;
 }
 .view-tab {
+  white-space: nowrap;
   border: none;
   background: transparent;
   color: var(--text-secondary);
@@ -894,7 +902,7 @@ body[data-view="learn"] #btnOpenManager { display: none; }
   backdrop-filter: blur(4px);
   transition: transform 0.15s ease, background-color 0.15s ease;
 }
-.learn-card:hover .learn-play span { transform: scale(1.1); background: var(--color-primary); }
+.learn-card:hover .learn-play span { transform: scale(1.1); background: var(--color-fill); }
 .learn-play svg { width: 22px; height: 22px; margin-left: 3px; fill: #fff; }
 .learn-kind {
   position: absolute;
@@ -970,12 +978,18 @@ dialog.dialog-wide { width: min(96vw, 1100px); }
 /* Phones / narrow windows: stack and allow scrolling */
 @media (max-width: 800px) {
   body { height: auto; min-height: 100dvh; overflow: auto; }
+  .top-navbar { padding: 0.6rem 0.9rem; }
+  .brand-logo-img { height: 42px; padding: 2px 8px; }
+  .view-tabs { margin-left: 0; }
+  .game-main { padding: 0.8rem; }
+  .game-main > * { min-width: 0; }
   .hud-stats { order: 3; width: 100%; }
   .game-main { grid-template-columns: 1fr; }
-  .stage-wrap { flex: none; }
-  .media-stage { aspect-ratio: 16 / 9; flex: none; }
+  .stage-wrap { flex: none; width: 100%; }
+  .media-stage { aspect-ratio: 16 / 9; flex: none; width: 100%; } /* width: don't grow to the image's natural size */
   .media-stage.mode-compare { grid-template-columns: 1fr; aspect-ratio: auto; }
   .media-stage.mode-compare .media-card { aspect-ratio: 16 / 9; height: auto; }
+  .choice-col { justify-content: flex-start; }
   .answer-choices-container { flex-direction: row; flex-wrap: wrap; height: auto; }
   .btn-answer { flex: 1 1 140px; max-height: none; }
 }

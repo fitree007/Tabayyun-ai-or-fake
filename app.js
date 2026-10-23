@@ -87,6 +87,7 @@ const state = {
   score: 0,
   streak: 0,
   answeredCount: 0,
+  answers: {}, // question id -> chosen answer, for this game only
   isAnswered: false,
   loupeEnabled: false,
   coverFit: false,
@@ -98,6 +99,7 @@ const state = {
   timerRemaining: 0,
   timerInterval: null,
   activeObjectUrls: [],
+  listObjectUrls: [],
   resizeObservers: [],
   user: null, // signed-in staff member (online mode)
 };
@@ -361,10 +363,10 @@ function cleanupObjectUrlsAndObservers() {
   state.resizeObservers = [];
 }
 
-function resolveMediaSource(blobOrData, fallbackUrl) {
+function resolveMediaSource(blobOrData, fallbackUrl, bucket = state.activeObjectUrls) {
   if (blobOrData instanceof Blob) {
     const objUrl = URL.createObjectURL(blobOrData);
-    state.activeObjectUrls.push(objUrl);
+    bucket.push(objUrl);
     return objUrl;
   }
   return fallbackUrl || '';
@@ -439,6 +441,13 @@ function renderCurrentQuestion(playRevealSfx = true) {
   }
 
   renderAnswerButtons(q);
+
+  // Already answered in this game (host went back): show the result again, no re-scoring, no timer
+  if (q.id in state.answers) {
+    state.isAnswered = true;
+    revealAnswer(q, state.answers[q.id]);
+    return;
+  }
 
   if (playRevealSfx) {
     window.sfx.playQuestionReveal();
@@ -631,11 +640,13 @@ function renderAnswerButtons(q) {
    ========================================================================== */
 function submitAnswer(selectedChoice) {
   if (state.isAnswered || state.questions.length === 0) return;
+  const q = state.questions[state.currentIndex];
+  if (q.id in state.answers) return; // each question counts once per game, even if revisited
   state.isAnswered = true;
   stopTimer();
 
-  const q = state.questions[state.currentIndex];
   const isCorrect = selectedChoice === q.correctAnswer;
+  state.answers[q.id] = selectedChoice;
 
   state.answeredCount += 1;
   if (isCorrect) {
@@ -648,6 +659,12 @@ function submitAnswer(selectedChoice) {
   }
 
   updateScoreHud();
+  revealAnswer(q, selectedChoice);
+}
+
+/** Lock the question and show its result — after answering, and again when revisiting an answered question. */
+function revealAnswer(q, selectedChoice) {
+  const isCorrect = selectedChoice === q.correctAnswer;
 
   // Highlight Answer Buttons
   const allBtns = els.answerButtonsContainer.querySelectorAll('.btn-answer');
@@ -922,19 +939,28 @@ function populateFormForEdit(question) {
   els.questionForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+/** Escape text before it goes into innerHTML (titles can come from staff input or imported packs). */
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+}
+
 async function renderQuestionsManagerList() {
   els.totalQuestionsCount.textContent = state.questions.length;
   els.questionsListContainer.innerHTML = '';
+  // The list keeps its own blob URLs so re-rendering the game stage doesn't break its thumbnails
+  state.listObjectUrls.forEach((url) => URL.revokeObjectURL(url));
+  state.listObjectUrls = [];
 
   state.questions.forEach((q, idx) => {
     const row = document.createElement('div');
     row.className = 'question-row';
 
-    const previewUrl = resolveMediaSource(q.mediaBlob, q.mediaUrl);
-    const correctMeta = CHOICE_META[q.correctAnswer] || { icon: '✨', label: q.correctAnswer };
-    const btnLabels = (q.enabledButtons || ['ai', 'real', 'manipulated'])
-      .map((k) => CHOICE_META[k]?.label || k)
-      .join(' / ');
+    const previewUrl = escapeHtml(resolveMediaSource(q.mediaBlob, q.mediaUrl, state.listObjectUrls));
+    const correctMeta = CHOICE_META[q.correctAnswer] || { icon: '', label: q.correctAnswer };
+    const btnLabels = escapeHtml(
+      (q.enabledButtons || ['ai', 'real', 'manipulated']).map((k) => CHOICE_META[k]?.label || k).join(' / ')
+    );
+    const title = escapeHtml(q.title || (q.mediaType === 'video' ? 'โจทย์คลิปวิดีโอ' : 'โจทย์ภาพนิ่ง'));
 
     row.innerHTML = `
       <div class="question-row-preview">
@@ -947,12 +973,12 @@ async function renderQuestionsManagerList() {
         </div>
         <div class="question-row-info">
           <div class="question-row-title">
-            ข้อที่ ${idx + 1}: ${q.title || (q.mediaType === 'video' ? 'โจทย์คลิปวิดีโอ' : 'โจทย์ภาพนิ่ง')}
+            ข้อที่ ${idx + 1}: ${title}
           </div>
           <div class="question-row-meta">
             <span class="tag-mini">${q.mediaType === 'video' ? 'วิดีโอ' : 'ภาพ'}</span>
             <span class="tag-mini">ปุ่ม: ${btnLabels}</span>
-            <span class="tag-mini tag-answer">เฉลย: ${correctMeta.label}</span>
+            <span class="tag-mini tag-answer">เฉลย: ${escapeHtml(correctMeta.label)}</span>
           </div>
         </div>
       </div>
@@ -1312,6 +1338,7 @@ function bindEvents() {
     state.score = 0;
     state.streak = 0;
     state.answeredCount = 0;
+    state.answers = {};
     state.currentIndex = 0;
     updateScoreHud();
     closeTopLayer(els.summaryDialog);

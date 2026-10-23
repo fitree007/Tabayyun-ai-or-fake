@@ -51,6 +51,23 @@
     return { url: data.publicUrl, path };
   }
 
+  /** Explain in plain Thai why a write was refused: expired session, not on the staff list, or schema. */
+  async function permissionProblem(action) {
+    try {
+      const { data: u } = await client.auth.getUser(); // checks the token with the server
+      const email = u && u.user ? u.user.email : '';
+      if (!email) return `${action}ไม่สำเร็จ: การเข้าสู่ระบบหมดอายุ — กด "ออกจากระบบ" แล้วเข้าสู่ระบบใหม่`;
+      const { data: isStaff, error } = await client.rpc('is_staff');
+      if (error) return `${action}ไม่สำเร็จ: ตรวจสิทธิ์สตาฟไม่ได้ (${error.message}) — ลองรันไฟล์ supabase/schema.sql ใหม่`;
+      if (!isStaff) {
+        return `${action}ไม่สำเร็จ: บัญชี ${email} ยังไม่อยู่ในรายชื่อสตาฟ — เพิ่มอีเมลนี้ในตาราง staff ใน Supabase ให้ตรงทุกตัวอักษร`;
+      }
+      return `${action}ไม่สำเร็จ: ฐานข้อมูลไม่อนุญาตทั้งที่เป็นสตาฟ — ลองรันไฟล์ supabase/schema.sql ใหม่ทั้งไฟล์`;
+    } catch (_) {
+      return `${action}ไม่สำเร็จ: เชื่อมต่อฐานข้อมูลไม่ได้ ลองใหม่อีกครั้ง`;
+    }
+  }
+
   async function removePaths(paths) {
     const list = paths.filter(Boolean);
     if (list.length) await client.storage.from(bucket).remove(list);
@@ -111,7 +128,7 @@
         });
         if (error) {
           await removePaths(newPaths.filter((p) => p !== old.mediaPath && p !== old.mediaPathB));
-          throw new Error('บันทึกโจทย์ไม่สำเร็จ (ต้องเข้าสู่ระบบด้วยอีเมลสตาฟ): ' + error.message);
+          throw new Error((await permissionProblem('บันทึก')) + ` [${error.message}]`);
         }
 
         await removePaths([old.mediaPath, old.mediaPathB].filter((p) => p && !newPaths.includes(p)));
@@ -132,8 +149,10 @@
       busy(true, 'กำลังลบ…');
       try {
         const { data: row } = await client.from(this.table).select('data').eq('id', id).maybeSingle();
-        const { error } = await client.from(this.table).delete().eq('id', id);
-        if (error) throw new Error('ลบไม่สำเร็จ (ต้องเข้าสู่ระบบด้วยอีเมลสตาฟ): ' + error.message);
+        // RLS turns a forbidden delete into "0 rows deleted" with no error, so ask for the deleted rows back
+        const { data: deleted, error } = await client.from(this.table).delete().eq('id', id).select('id');
+        if (error) throw new Error((await permissionProblem('ลบ')) + ` [${error.message}]`);
+        if (row && (!deleted || deleted.length === 0)) throw new Error(await permissionProblem('ลบ'));
         if (row && row.data) await removePaths([row.data.mediaPath, row.data.mediaPathB]);
       } finally {
         busy(false);
@@ -144,8 +163,9 @@
       busy(true, 'กำลังลบทั้งหมด…');
       try {
         const { data: rows } = await client.from(this.table).select('id, data');
-        const { error } = await client.from(this.table).delete().neq('id', '');
-        if (error) throw new Error('ลบไม่สำเร็จ (ต้องเข้าสู่ระบบด้วยอีเมลสตาฟ): ' + error.message);
+        const { data: deleted, error } = await client.from(this.table).delete().neq('id', '').select('id');
+        if (error) throw new Error((await permissionProblem('ลบ')) + ` [${error.message}]`);
+        if ((rows || []).length > 0 && (!deleted || deleted.length === 0)) throw new Error(await permissionProblem('ลบ'));
         const paths = [];
         (rows || []).forEach((r) => paths.push(r.data && r.data.mediaPath, r.data && r.data.mediaPathB));
         await removePaths(paths);
