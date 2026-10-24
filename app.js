@@ -824,28 +824,8 @@ function createMediaCardElement({ mediaType, src, badgeText, choiceKey, muteVide
       saveSettings();
     });
 
-    // Autoplay with sound can be blocked by the browser; fall back to muted + a one-tap hint
-    const playPromise = video.play();
-    if (playPromise && typeof playPromise.catch === 'function') {
-      playPromise.catch(() => {
-        video._skipVolumeSync = performance.now() + 400;
-        video.muted = true;
-        video.play().catch(() => {});
-        if (state.videoSoundOn && video.dataset.forceMuted !== '1') {
-          const hint = document.createElement('button');
-          hint.type = 'button';
-          hint.className = 'unmute-hint';
-          hint.textContent = 'แตะเพื่อเปิดเสียงวิดีโอ';
-          hint.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            applyVideoAudio(video);
-            video.play().catch(() => {});
-            hint.remove();
-          });
-          card.appendChild(hint);
-        }
-      });
-    }
+    // No autoplay: the host starts the clip (click it, or the play button). Since that click is a user
+    // gesture, the browser lets it play with sound — no muted fallback is needed.
   } else {
     const img = document.createElement('img');
     img.className = `media-element ${state.coverFit ? 'cover-fit' : ''}`;

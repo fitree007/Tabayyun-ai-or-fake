@@ -93,10 +93,16 @@
     el.learnView.hidden = !learn;
 
     if (learn) {
-      document.querySelectorAll('#mediaStage video').forEach((v) => v.pause());
+      document.querySelectorAll('#mediaStage video').forEach((v) => {
+        v.dataset.resumeOnReturn = v.paused ? '' : '1'; // only resume what the host had playing
+        v.pause();
+      });
       loadAndRender();
     } else {
-      document.querySelectorAll('#mediaStage video').forEach((v) => v.play().catch(() => {}));
+      document.querySelectorAll('#mediaStage video').forEach((v) => {
+        if (v.dataset.resumeOnReturn === '1') v.play().catch(() => {});
+        v.dataset.resumeOnReturn = '';
+      });
     }
     try {
       history.replaceState(null, '', learn ? '#learn' : location.pathname + location.search);
